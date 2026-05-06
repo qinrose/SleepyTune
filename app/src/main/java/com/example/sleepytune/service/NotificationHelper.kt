@@ -1,0 +1,224 @@
+package com.example.sleepytune.service
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.media.AudioAttributes
+import android.media.RingtoneManager
+import android.os.Build
+import android.util.Log
+import androidx.core.app.NotificationCompat
+import com.example.sleepytune.MainActivity
+import com.example.sleepytune.R
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
+
+@Singleton
+class NotificationHelper @Inject constructor(
+    @ApplicationContext private val context: Context
+) {
+    companion object {
+        private const val TAG = "NotificationHelper"
+        
+        // 通知渠道ID
+        const val CHANNEL_ID_ALARM = "alarm_channel"
+        const val CHANNEL_ID_SNOOZE = "snooze_channel"
+        const val CHANNEL_ID_SLEEP_TIMER = "sleep_timer_channel"
+        
+        // 通知ID
+        const val NOTIFICATION_ID_ALARM = 1001
+        const val NOTIFICATION_ID_SNOOZE = 1002
+        const val NOTIFICATION_ID_SLEEP_TIMER = 1003
+        
+        // 通知动作
+        const val ACTION_STOP = "com.example.sleepytune.ACTION_STOP"
+        const val ACTION_SNOOZE = "com.example.sleepytune.ACTION_SNOOZE"
+    }
+    
+    private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    
+    init {
+        createNotificationChannels()
+    }
+    
+    // 创建所有通知渠道
+    private fun createNotificationChannels() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // 闹钟播放渠道 - 不设置声音，由 AlarmPlaybackService 自己播放
+            val alarmChannel = NotificationChannel(
+                CHANNEL_ID_ALARM,
+                "闹钟播放",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "闹钟正在播放中"
+                enableVibration(true)
+                vibrationPattern = longArrayOf(500, 500)
+                setShowBadge(false)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                // 不设置声音，避免和 AlarmPlaybackService 的音乐冲突
+                setSound(null, null)
+            }
+            
+            // 贪睡渠道
+            val snoozeChannel = NotificationChannel(
+                CHANNEL_ID_SNOOZE,
+                "贪睡提醒",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "贪睡时间即将结束"
+                enableVibration(true)
+                setShowBadge(false)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            }
+            
+            // 睡眠定时器渠道
+            val sleepTimerChannel = NotificationChannel(
+                CHANNEL_ID_SLEEP_TIMER,
+                "睡眠定时器",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "睡眠定时器运行中"
+                setShowBadge(false)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            }
+            
+            notificationManager.createNotificationChannels(listOf(
+                alarmChannel,
+                snoozeChannel,
+                sleepTimerChannel
+            ))
+            
+            Log.i(TAG, "通知渠道已创建")
+        }
+    }
+    
+    // 构建闹钟播放通知
+    fun buildAlarmNotification(
+        alarmLabel: String,
+        isPlaying: Boolean,
+        alarmId: Long = -1L,
+        playlistName: String? = null,
+        nextAlarmTime: String? = null
+    ): Notification {
+        // 点击通知打开应用
+        val contentIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val contentPendingIntent = PendingIntent.getActivity(
+            context,
+            0,
+            contentIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        
+        // 停止按钮
+        val stopIntent = Intent(context, AlarmPlaybackReceiver::class.java).apply {
+            action = ACTION_STOP
+        }
+        val stopPendingIntent = PendingIntent.getBroadcast(
+            context,
+            1,
+            stopIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        
+        // 贪睡按钮
+        val snoozeIntent = Intent(context, AlarmPlaybackReceiver::class.java).apply {
+            action = ACTION_SNOOZE
+        }
+        val snoozePendingIntent = PendingIntent.getBroadcast(
+            context,
+            2,
+            snoozeIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        
+        // 构建通知内容
+        val contentText = buildString {
+            append(if (isPlaying) "正在播放..." else "贪睡中...")
+            playlistName?.let { append(" • $it") }
+        }
+        
+        return NotificationCompat.Builder(context, CHANNEL_ID_ALARM)
+            .setContentTitle(alarmLabel)
+            .setContentText(contentText)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentIntent(contentPendingIntent)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setOngoing(isPlaying)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setAutoCancel(false)
+            .addAction(
+                android.R.drawable.ic_media_pause,
+                "停止",
+                stopPendingIntent
+            )
+            .addAction(
+                android.R.drawable.ic_media_next,
+                "贪睡",
+                snoozePendingIntent
+            )
+            .apply {
+                // 显示下次闹钟时间
+                nextAlarmTime?.let {
+                    setSubText("下次闹钟: $it")
+                }
+            }
+            .build()
+    }
+    
+    // 构建睡眠定时器通知
+    fun buildSleepTimerNotification(
+        remainingMinutes: Int
+    ): Notification {
+        val contentIntent = Intent(context, MainActivity::class.java)
+        val contentPendingIntent = PendingIntent.getActivity(
+            context,
+            0,
+            contentIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        
+        return NotificationCompat.Builder(context, CHANNEL_ID_SLEEP_TIMER)
+            .setContentTitle("睡眠定时器")
+            .setContentText("剩余 ${remainingMinutes} 分钟")
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentIntent(contentPendingIntent)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setOngoing(true)
+            .build()
+    }
+    
+    // 更新闹钟通知
+    fun updateAlarmNotification(
+        alarmLabel: String,
+        isPlaying: Boolean,
+        playlistName: String? = null,
+        nextAlarmTime: String? = null
+    ) {
+        val notification = buildAlarmNotification(
+            alarmLabel = alarmLabel,
+            isPlaying = isPlaying,
+            playlistName = playlistName,
+            nextAlarmTime = nextAlarmTime
+        )
+        notificationManager.notify(NOTIFICATION_ID_ALARM, notification)
+    }
+    
+    // 取消闹钟通知
+    fun cancelAlarmNotification() {
+        notificationManager.cancel(NOTIFICATION_ID_ALARM)
+        Log.i(TAG, "闹钟通知已取消")
+    }
+    
+    // 取消睡眠定时器通知
+    fun cancelSleepTimerNotification() {
+        notificationManager.cancel(NOTIFICATION_ID_SLEEP_TIMER)
+    }
+}

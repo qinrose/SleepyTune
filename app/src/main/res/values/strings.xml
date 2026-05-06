@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App -->
+    <string name="app_name">Sleepy Tune</string>
+
+    <!-- Navigation -->
+    <string name="nav_alarms">Alarms</string>
+    <string name="nav_music">Music</string>
+    <string name="nav_playlists">Playlists</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Alarm -->
+    <string name="alarm_title">Alarm</string>
+    <string name="alarm_add">Add Alarm</string>
+    <string name="alarm_edit">Edit Alarm</string>
+    <string name="alarm_delete">Delete Alarm</string>
+    <string name="alarm_enable">Enable</string>
+    <string name="alarm_disable">Disable</string>
+    <string name="alarm_repeat">Repeat</string>
+    <string name="alarm_label">Label</string>
+    <string name="alarm_ringtone">Ringtone</string>
+    <string name="alarm_vibrate">Vibrate</string>
+    <string name="alarm_snooze">Snooze</string>
+    <string name="alarm_duration">Duration</string>
+    <string name="alarm_volume">Volume</string>
+    <string name="alarm_playlist">Playlist</string>
+
+    <!-- Days -->
+    <string name="day_monday">Mon</string>
+    <string name="day_tuesday">Tue</string>
+    <string name="day_wednesday">Wed</string>
+    <string name="day_thursday">Thu</string>
+    <string name="day_friday">Fri</string>
+    <string name="day_saturday">Sat</string>
+    <string name="day_sunday">Sun</string>
+
+    <!-- Day Full Names -->
+    <string name="day_monday_full">Monday</string>
+    <string name="day_tuesday_full">Tuesday</string>
+    <string name="day_wednesday_full">Wednesday</string>
+    <string name="day_thursday_full">Thursday</string>
+    <string name="day_friday_full">Friday</string>
+    <string name="day_saturday_full">Saturday</string>
+    <string name="day_sunday_full">Sunday</string>
+
+    <!-- Repeat Options -->
+    <string name="repeat_once">Once</string>
+    <string name="repeat_daily">Daily</string>
+    <string name="repeat_weekdays">Weekdays</string>
+    <string name="repeat_weekends">Weekends</string>
+    <string name="repeat_custom">Custom</string>
+
+    <!-- Alarm Actions -->
+    <string name="alarm_stop">Stop</string>
+    <string name="alarm_stop_vibrate">Stop Vibration</string>
+    <string name="alarm_snooze_action">Snooze</string>
+    <string name="alarm_dismiss">Dismiss</string>
+
+    <!-- Music -->
+    <string name="music_title">Music Library</string>
+    <string name="music_search">Search music…</string>
+    <string name="music_sort">Sort</string>
+    <string name="music_filter">Filter</string>
+    <string name="music_no_songs">No songs found</string>
+    <string name="music_scan">Scan Music</string>
+    <string name="music_scanning">Scanning music…</string>
+    <string name="music_found">Found %d songs</string>
+    <string name="music_selected_count">Selected %d songs</string>
+    <string name="music_add_to_playlist">Add to Playlist</string>
+    <string name="music_select_all">Select All</string>
+    <string name="music_deselect_all">Deselect All</string>
+    <string name="music_play">Play</string>
+    <string name="music_pause">Pause</string>
+    <string name="music_unknown_album">Unknown Album</string>
+    <string name="music_search_hint">Try other keywords</string>
+    <string name="music_filter_hint">Try other filters</string>
+    <string name="music_scan_hint">Tap the refresh button to scan local music</string>
+
+    <!-- Sort Options -->
+    <string name="sort_name">Name</string>
+    <string name="sort_artist">Artist</string>
+    <string name="sort_album">Album</string>
+    <string name="sort_duration">Duration</string>
+    <string name="sort_date_added">Date Added</string>
+
+    <!-- Filter Options -->
+    <string name="filter_all">All</string>
+    <string name="filter_mp3">MP3</string>
+    <string name="filter_flac">FLAC</string>
+    <string name="filter_wav">WAV</string>
+    <string name="filter_m4a">M4A</string>
+    <string name="filter_all_duration">All Durations</string>
+    <string name="filter_short">Less than 1 min</string>
+    <string name="filter_long">More than 1 min</string>
+
+    <!-- Playlist -->
+    <string name="playlist_title">Playlists</string>
+    <string name="playlist_management">Manage Playlists</string>
+    <string name="playlist_create">Create Playlist</string>
+    <string name="playlist_edit">Edit Playlist</string>
+    <string name="playlist_delete">Delete Playlist</string>
+    <string name="playlist_rename">Rename</string>
+    <string name="playlist_name">Playlist Name</string>
+    <string name="playlist_empty">No playlists yet</string>
+    <string name="playlist_add_songs">Add Songs</string>
+    <string name="playlist_remove_song">Remove Song</string>
+    <string name="playlist_song_count">%d songs</string>
+    <string name="playlist_empty_hint">Create your first playlist to organize music</string>
+    <string name="playlist_detail_empty">Playlist is empty</string>
+    <string name="playlist_detail_empty_hint">Go to music library to add songs</string>
+    <string name="playlist_generate">Generate Playlist</string>
+    <string name="playlist_input_hint">Enter playlist name</string>
+    <string name="playlist_detail_title">Playlist Detail</string>
+    <string name="playlist_delete_confirm">Delete this playlist?</string>
+    <string name="playlist_delete_message">Are you sure you want to delete \"%s\"?\nThis action cannot be undone.</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_volume">Volume Settings</string>
+    <string name="settings_sleep">Sleep Timer</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_about">About</string>
+    <string name="settings_permissions">Permissions</string>
+    <string name="settings_notifications">Notifications</string>
+    <string name="settings_notifications_desc">Manage notification permissions and alerts</string>
+    <string name="settings_permissions_desc">View and manage app permissions</string>
+    <string name="settings_volume_desc">Adjust alarm volume and fade-in effects</string>
+    <string name="settings_sleep_desc">Set bedtime music auto-stop timer</string>
+    <string name="settings_about_desc">SleepyTune v1.0 - Master-level alarm app</string>
+
+    <!-- Volume Settings -->
+    <string name="volume_alarm">Alarm Volume</string>
+    <string name="volume_fade_in">Fade In</string>
+    <string name="volume_fade_in_duration">Fade In Duration</string>
+    <string name="volume_test">Test</string>
+
+    <!-- Sleep Settings -->
+    <string name="sleep_timer">Sleep Timer</string>
+    <string name="sleep_duration">Sleep Duration</string>
+    <string name="sleep_auto_stop">Auto Stop</string>
+    <string name="sleep_timer_enable">Enable Sleep Timer</string>
+    <string name="sleep_fade_out">Fade Out Before End</string>
+
+    <!-- Theme -->
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_system">System</string>
+
+    <!-- About -->
+    <string name="about_title">About SleepyTune</string>
+    <string name="about_version">Version</string>
+    <string name="about_developer">Developer</string>
+    <string name="about_license">License</string>
+    <string name="about_privacy">Privacy Policy</string>
+    <string name="about_feedback">Feedback</string>
+    <string name="about_desc">An elegant alarm app supporting custom music playback, snooze, sleep timer, and more.</string>
+    <string name="about_features">Features:</string>
+    <string name="about_feature_alarm">Full-screen alarm alerts</string>
+    <string name="about_feature_fade">Volume fade-in wake-up</string>
+    <string name="about_feature_playlist">Custom playlist playback</string>
+    <string name="about_feature_sleep">Sleep timer</string>
+    <string name="about_feature_widget">Home screen widget</string>
+
+    <!-- Permissions -->
+    <string name="permission_required">Permission Required</string>
+    <string name="permission_storage">Storage permission is required to access music files</string>
+    <string name="permission_alarm">Alarm permission is required to schedule alarms</string>
+    <string name="permission_notification">Notification permission is required for alarm alerts</string>
+    <string name="permission_grant">Grant Permission</string>
+    <string name="permission_settings">Open Settings</string>
+
+    <!-- Notifications -->
+    <string name="notification_channel_alarm">Alarm</string>
+    <string name="notification_channel_snooze">Snooze</string>
+    <string name="notification_channel_sleep">Sleep Timer</string>
+    <string name="notification_alarm_active">Alarm Active</string>
+    <string name="notification_snooze_active">Snooze Active</string>
+    <string name="notification_next_alarm">Next alarm: %s</string>
+    <string name="notification_alarm_playing">Alarm Playing</string>
+    <string name="notification_alarm_playing_desc">Alarm is currently playing</string>
+
+    <!-- Widget -->
+    <string name="widget_next_alarm">Next Alarm</string>
+    <string name="widget_no_alarm">No alarm set</string>
+
+    <!-- Empty States -->
+    <string name="empty_alarms">No alarms yet</string>
+    <string name="empty_alarms_desc">Tap + to add your first alarm</string>
+    <string name="empty_music">No music found</string>
+    <string name="empty_music_desc">Add music to your device to use as alarm tones</string>
+    <string name="empty_playlists">No playlists yet</string>
+    <string name="empty_playlists_desc">Create a playlist to organize your alarm music</string>
+
+    <!-- Messages -->
+    <string name="msg_alarm_saved">Alarm saved</string>
+    <string name="msg_alarm_deleted">Alarm deleted</string>
+    <string name="msg_playlist_created">Playlist created</string>
+    <string name="msg_playlist_deleted">Playlist deleted</string>
+    <string name="msg_error">An error occurred</string>
+    <string name="msg_undo">Undo</string>
+
+    <!-- Duration -->
+    <string name="duration_minutes">%d minutes</string>
+    <string name="duration_seconds">%d seconds</string>
+    <string name="duration_minutes_short">min</string>
+    <string name="duration_seconds_short">s</string>
+
+    <!-- Time -->
+    <string name="time_am">AM</string>
+    <string name="time_pm">PM</string>
+    <string name="time_tomorrow">Tomorrow</string>
+    <string name="time_today">Today</string>
+
+    <!-- Confirmation -->
+    <string name="confirm_delete">Delete this alarm?</string>
+    <string name="confirm_delete_playlist">Delete this playlist?</string>
+    <string name="confirm_yes">Yes</string>
+    <string name="confirm_no">No</string>
+    <string name="confirm_cancel">Cancel</string>
+    <string name="confirm_ok">OK</string>
+    <string name="confirm_save">Save</string>
+    <string name="confirm">Confirm</string>
+
+    <!-- Battery Optimization -->
+    <string name="battery_optimization_title">Battery Optimization</string>
+    <string name="battery_optimization_message">For reliable alarms, please disable battery optimization for Sleepy Tune</string>
+    <string name="battery_optimization_disable">Disable</string>
+    <string name="battery_optimization_desc">Add app to whitelist to ensure alarms work properly</string>
+
+    <!-- Language -->
+    <string name="language_restart_hint">Language changes will take effect immediately</string>
+    <string name="language_system">Follow System</string>
+    <string name="language_english">English</string>
+    <string name="language_chinese">Chinese</string>
+
+    <!-- Alarm Overlay -->
+    <string name="alarm_ringing">Alarm Ringing</string>
+    <string name="alarm_stop_button">Stop Alarm</string>
+    <string name="alarm_stop_hint">Tap the button above to stop the alarm</string>
+
+    <!-- My Alarms -->
+    <string name="my_alarms">My Alarms</string>
+    <string name="alarm_count">%d alarms</string>
+    <string name="alarm_once_only">Once only</string>
+
+    <!-- Music Library -->
+    <string name="music_library_title">Music Library</string>
+
+    <!-- Vibrate Settings -->
+    <string name="vibrate_delay">Vibrate Delay</string>
+    <string name="vibrate_delay_now">Now</string>
+    <string name="vibrate_delay_minutes">%d min</string>
+    <string name="vibrate_delay_hint">How long after alarm starts to begin vibration</string>
+    <string name="vibrate_immediately">Immediately</string>
+    <string name="vibrate_after_minutes">After %d minutes</string>
+
+    <!-- Common Actions -->
+    <string name="action_add">Add</string>
+    <string name="action_back">Back</string>
+    <string name="action_more">More</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_play">Play</string>
+    <string name="action_close">Close</string>
+    <string name="action_search">Search</string>
+    <string name="action_filter">Filter</string>
+    <string name="action_sort">Sort</string>
+    <string name="action_refresh">Refresh</string>
+    <string name="action_select">Select</string>
+    <string name="action_deselect">Deselect</string>
+
+    <!-- Alarm Playback -->
+    <string name="playback_playing">Playing…</string>
+    <string name="playback_snoozing">Snoozing…</string>
+    <string name="playback_playlist_format">%1$s (%2$d/%3$d)</string>
+
+    <!-- Time formatting -->
+    <string name="time_hours_minutes">%1$dh %2$dm</string>
+    <string name="time_minutes_only">%1$d min</string>
+    <string name="time_seconds_only">%1$d s</string>
+
+    <!-- Snooze -->
+    <string name="snooze_minutes">Snooze for %d minutes</string>
+    <string name="snooze_resume">Snooze ends, alarm will ring again</string>
+
+    <!-- Quick Repeat Options -->
+    <string name="repeat_quick_options">Quick Options</string>
+
+    <!-- Repeat Days Label -->
+    <string name="repeat_days_label">Repeat Days</string>
+</resources>

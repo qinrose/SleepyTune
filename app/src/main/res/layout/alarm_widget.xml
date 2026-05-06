@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:padding="16dp">
+    
+    <!-- 闹钟图标 -->
+    <ImageView
+        android:id="@+id/iv_alarm_icon"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentTop="true"
+        android:src="@drawable/ic_launcher_foreground"
+        android:contentDescription="闹钟" />
+    
+    <!-- 下一个闹钟时间 -->
+    <TextView
+        android:id="@+id/tv_next_alarm_time"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/iv_alarm_icon"
+        android:layout_alignParentStart="true"
+        android:layout_marginTop="8dp"
+        android:text="08:00"
+        android:textSize="32sp"
+        android:textStyle="bold"
+        android:textColor="@android:color/white" />
+    
+    <!-- 闹钟标签 -->
+    <TextView
+        android:id="@+id/tv_alarm_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/tv_next_alarm_time"
+        android:layout_alignParentStart="true"
+        android:text="起床"
+        android:textSize="14sp"
+        android:textColor="@android:color/white"
+        android:alpha="0.8" />
+    
+    <!-- 开关按钮 -->
+    <ImageView
+        android:id="@+id/iv_toggle"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_alignParentEnd="true"
+        android:layout_centerVertical="true"
+        android:src="@android:drawable/ic_lock_idle_alarm"
+        android:contentDescription="开关" />
+    
+</RelativeLayout>
