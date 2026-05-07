@@ -17,6 +17,7 @@ import android.os.VibratorManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.sleepytune.R
+import com.example.sleepytune.ui.screen.alarm.AlarmAlertActivity
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -401,6 +402,8 @@ class AlarmPlaybackService : android.app.Service() {
         Log.i(TAG, "仅停止震动，继续播放音乐")
         stopVibration()
         vibrateDelayJob?.cancel()
+        // 清除震动标志，防止重新启动震动
+        shouldVibrate = false
         updateNotification()
     }
 
@@ -416,6 +419,14 @@ class AlarmPlaybackService : android.app.Service() {
         snoozeJob = CoroutineScope(Dispatchers.Main).launch {
             delay(SNOOZE_DELAY_MS)
             if (isPlaying.not()) {
+                // 重新启动闹钟提醒界面
+                val alertIntent = Intent(applicationContext, AlarmAlertActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    putExtra("alarm_id", alarmId)
+                    putExtra("label", alarmLabel)
+                }
+                applicationContext.startActivity(alertIntent)
+                
                 startAlarm()
             }
         }
