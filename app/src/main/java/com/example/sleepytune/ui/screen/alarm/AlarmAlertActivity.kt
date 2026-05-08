@@ -107,7 +107,7 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String) {
                 )
             )
             .noiseOverlay()
-            .systemBarsPadding(),
+            .padding(start = 16.dp, end = 16.dp, top = 32.dp, bottom = 32.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(

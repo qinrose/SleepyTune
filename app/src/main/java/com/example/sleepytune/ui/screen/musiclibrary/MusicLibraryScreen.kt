@@ -342,30 +342,6 @@ fun MusicLibraryScreen(navController: NavController) {
                             }
                         }
                         Box {
-                            IconButton(onClick = { showDurationMenu = true }) {
-                                Icon(Icons.Default.Schedule, stringResource(R.string.alarm_duration), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            DropdownMenu(
-                                expanded = showDurationMenu,
-                                onDismissRequest = { showDurationMenu = false }
-                            ) {
-                                DurationFilter.entries.forEach { filter ->
-                                    DropdownMenuItem(
-                                        text = {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Text(stringResource(filter.labelRes), style = MaterialTheme.typography.bodyMedium)
-                                                if (durationFilter == filter) {
-                                                    Spacer(modifier = Modifier.width(8.dp))
-                                                    Text("✓", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
-                                                }
-                                            }
-                                        },
-                                        onClick = { durationFilter = filter; showDurationMenu = false }
-                                    )
-                                }
-                            }
-                        }
-                        Box {
                             IconButton(onClick = { showSortMenu = true }) {
                                 Icon(Icons.Default.Sort, stringResource(R.string.music_sort), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
@@ -448,7 +424,7 @@ fun MusicLibraryScreen(navController: NavController) {
                         )
                     }
                     Text(
-                        text = "(${filteredMusic.size}${stringResource(R.string.music_found, 0).substringAfter(" ")})",
+                        text = "(${filteredMusic.size}首)",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -975,7 +951,7 @@ private fun MusicItem(
                     text = index.toString(),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.width(32.dp)
+                    modifier = Modifier.width(40.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
             }
