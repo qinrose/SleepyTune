@@ -151,8 +151,7 @@ fun PlaylistScreen(navController: NavController) {
                 }) { Text(stringResource(R.string.confirm_ok)) }
             },
             dismissButton = { TextButton(onClick = { showCreateDialog = false }) { Text(stringResource(R.string.confirm_cancel)) } },
-            shape = RoundedCornerShape(20.dp),
-            containerColor = MaterialTheme.colorScheme.surface
+            shape = RoundedCornerShape(20.dp)
         )
     }
 
@@ -185,8 +184,7 @@ fun PlaylistScreen(navController: NavController) {
                 }) { Text(stringResource(R.string.confirm_ok)) }
             },
             dismissButton = { TextButton(onClick = { showRenameDialog = false; selectedPlaylist = null }) { Text(stringResource(R.string.confirm_cancel)) } },
-            shape = RoundedCornerShape(20.dp),
-            containerColor = MaterialTheme.colorScheme.surface
+            shape = RoundedCornerShape(20.dp)
         )
     }
 
@@ -207,8 +205,7 @@ fun PlaylistScreen(navController: NavController) {
                 }) { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = { TextButton(onClick = { showDeleteDialog = false; selectedPlaylist = null }) { Text(stringResource(R.string.confirm_cancel)) } },
-            shape = RoundedCornerShape(20.dp),
-            containerColor = MaterialTheme.colorScheme.surface
+            shape = RoundedCornerShape(20.dp)
         )
     }
 }
@@ -304,9 +301,7 @@ fun PlaylistCard(playlist: Playlist, onClick: () -> Unit, onRename: () -> Unit, 
             }
             DropdownMenu(
                 expanded = showMenu,
-                onDismissRequest = { showMenu = false },
-                containerColor = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                onDismissRequest = { showMenu = false }
             ) {
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.playlist_rename), style = MaterialTheme.typography.bodyMedium) },

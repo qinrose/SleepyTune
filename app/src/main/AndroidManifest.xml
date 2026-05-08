@@ -104,6 +104,9 @@
             <intent-filter>
                 <action android:name="com.example.sleepytune.ACTION_STOP" />
                 <action android:name="com.example.sleepytune.ACTION_SNOOZE" />
+                <action android:name="com.example.sleepytune.ACTION_STOP_VIBRATE" />
+                <action android:name="com.example.sleepytune.ACTION_PAUSE_VIBRATE" />
+                <action android:name="com.example.sleepytune.ACTION_STOP_ALARM" />
             </intent-filter>
         </receiver>
         

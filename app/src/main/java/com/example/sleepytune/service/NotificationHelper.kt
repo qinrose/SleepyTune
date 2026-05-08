@@ -55,8 +55,7 @@ class NotificationHelper @Inject constructor(
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "闹钟正在播放中"
-                enableVibration(true)
-                vibrationPattern = longArrayOf(500, 500)
+                enableVibration(false) // 禁用渠道自带震动，由 AlarmPlaybackService 控制
                 setShowBadge(false)
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
                 // 不设置声音，避免和 AlarmPlaybackService 的音乐冲突

@@ -35,6 +35,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.sleepytune.service.AlarmPlaybackService
 import com.example.sleepytune.service.AlarmStateManager
+import com.example.sleepytune.ui.screen.alarm.AlarmAlertActivity
 import com.example.sleepytune.ui.screen.alarmedit.AlarmEditScreen
 import com.example.sleepytune.ui.screen.alarmlist.AlarmListScreen
 import com.example.sleepytune.ui.screen.musiclibrary.MusicLibraryScreen
@@ -58,6 +59,18 @@ class MainActivity : AppCompatActivity() {
         enableEdgeToEdge()
 
         PermissionUtils.initPermissionLaunchers(this)
+
+        // 检查是否有活动的闹钟，如果有则直接启动闹钟界面
+        if (alarmStateManager.isAlarmPlaying.value) {
+            val alarmLabel = alarmStateManager.alarmLabel.value
+            startActivity(Intent(this, AlarmAlertActivity::class.java).apply {
+                putExtra("alarm_id", -1L)
+                putExtra("label", alarmLabel)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            })
+            finish()
+            return
+        }
 
         setContent {
             // 主题已由 AppCompatDelegate 处理 - SleepyTuneTheme 使用 LocalConfiguration

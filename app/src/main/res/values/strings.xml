@@ -53,6 +53,7 @@
     <!-- Alarm Actions -->
     <string name="alarm_stop">Stop</string>
     <string name="alarm_stop_vibrate">Stop Vibration</string>
+    <string name="alarm_pause_vibrate">Pause Vibration</string>
     <string name="alarm_snooze_action">Snooze</string>
     <string name="alarm_dismiss">Dismiss</string>
 
@@ -247,6 +248,12 @@
     <!-- Music Library -->
     <string name="music_library_title">Music Library</string>
 
+    <!-- View Mode -->
+    <string name="view_all">All Music</string>
+    <string name="view_artist">By Artist</string>
+    <string name="view_album">By Album</string>
+    <string name="music_unknown_artist">Unknown Artist</string>
+
     <!-- Vibrate Settings -->
     <string name="vibrate_delay">Vibrate Delay</string>
     <string name="vibrate_delay_now">Now</string>
@@ -288,4 +295,9 @@
 
     <!-- Repeat Days Label -->
     <string name="repeat_days_label">Repeat Days</string>
+
+    <!-- Playback Order -->
+    <string name="playback_order">Playback Order</string>
+    <string name="playback_sequential">Sequential</string>
+    <string name="playback_shuffle">Shuffle</string>
 </resources>

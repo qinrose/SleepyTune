@@ -53,6 +53,7 @@
     <!-- Alarm Actions -->
     <string name="alarm_stop">停止</string>
     <string name="alarm_stop_vibrate">关闭震动</string>
+    <string name="alarm_pause_vibrate">稍后再震</string>
     <string name="alarm_snooze_action">贪睡</string>
     <string name="alarm_dismiss">关闭</string>
 
@@ -247,6 +248,12 @@
     <!-- Music Library -->
     <string name="music_library_title">音乐库</string>
 
+    <!-- View Mode -->
+    <string name="view_all">全部音乐</string>
+    <string name="view_artist">按歌手</string>
+    <string name="view_album">按专辑</string>
+    <string name="music_unknown_artist">未知歌手</string>
+
     <!-- Vibrate Settings -->
     <string name="vibrate_delay">震动延迟</string>
     <string name="vibrate_delay_now">立即</string>
@@ -288,4 +295,9 @@
 
     <!-- Repeat Days Label -->
     <string name="repeat_days_label">重复日期</string>
+
+    <!-- Playback Order -->
+    <string name="playback_order">播放顺序</string>
+    <string name="playback_sequential">顺序</string>
+    <string name="playback_shuffle">随机</string>
 </resources>

@@ -5,14 +5,22 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Alarm
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.Snooze
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Vibration
@@ -20,18 +28,23 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.sleepytune.R
 import com.example.sleepytune.service.AlarmPlaybackService
+import com.example.sleepytune.ui.theme.AlarmColorConfig
 import com.example.sleepytune.ui.theme.SleepyTuneTheme
-import kotlinx.coroutines.delay
+import kotlin.math.abs
 
 class AlarmAlertActivity : ComponentActivity() {
 
@@ -41,6 +54,7 @@ class AlarmAlertActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         Log.i(TAG, "闹钟提醒界面启动")
 
         val alarmId = intent.getLongExtra("alarm_id", -1L)
@@ -48,32 +62,38 @@ class AlarmAlertActivity : ComponentActivity() {
 
         setContent {
             SleepyTuneTheme {
-                AlarmAlertScreen(
-                    alarmId = alarmId,
-                    alarmLabel = alarmLabel
-                )
+                AlarmAlertScreen(alarmId = alarmId, alarmLabel = alarmLabel)
             }
         }
     }
 
-    override fun onBackPressed() {
-        // 禁止返回键关闭闹钟
-    }
+    override fun onBackPressed() {}
 }
 
 @Composable
 fun AlarmAlertScreen(alarmId: Long, alarmLabel: String) {
     val context = LocalContext.current
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val scale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.15f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(800, easing = EaseInOutCubic),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "scale"
-    )
+
+    var songTitle by remember { mutableStateOf("") }
+    var songArtist by remember { mutableStateOf("") }
+    var isVibrating by remember { mutableStateOf(true) }
+
+    DisposableEffect(Unit) {
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(ctx: android.content.Context?, intent: Intent?) {
+                intent?.let {
+                    songTitle = it.getStringExtra(AlarmPlaybackService.EXTRA_SONG_TITLE) ?: ""
+                    songArtist = it.getStringExtra(AlarmPlaybackService.EXTRA_SONG_ARTIST) ?: ""
+                }
+            }
+        }
+        val filter = android.content.IntentFilter(AlarmPlaybackService.ACTION_UPDATE_PLAYBACK_INFO)
+        context.registerReceiver(receiver, filter)
+        onDispose { context.unregisterReceiver(receiver) }
+    }
+
+    val btnColors = ButtonDefaults.buttonColors(containerColor = AlarmColorConfig.ButtonPrimary)
+    val btnShape = RoundedCornerShape(16.dp)
 
     Box(
         modifier = Modifier
@@ -81,162 +101,203 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String) {
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
-                        MaterialTheme.colorScheme.background
+                        AlarmColorConfig.BackgroundTop,
+                        AlarmColorConfig.BackgroundBottom
                     )
                 )
-            ),
+            )
+            .noiseOverlay()
+            .systemBarsPadding(),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier
+                .fillMaxWidth(0.88f)
+                .verticalScroll(rememberScrollState())
         ) {
-            // 闹钟图标（脉冲动画）
-            Box(
-                modifier = Modifier
-                    .size(140.dp)
-                    .scale(scale)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Alarm,
-                    contentDescription = stringResource(R.string.alarm_title),
-                    modifier = Modifier.size(80.dp),
-                    tint = MaterialTheme.colorScheme.error
+            if (songTitle.isNotEmpty()) {
+                SongInfoRow(
+                    title = songTitle,
+                    artist = songArtist,
+                    onNextSong = {
+                        context.startService(Intent(context, AlarmPlaybackService::class.java).apply {
+                            action = AlarmPlaybackService.ACTION_NEXT_SONG
+                        })
+                    }
                 )
+                Spacer(modifier = Modifier.height(48.dp))
             }
 
-            Spacer(modifier = Modifier.height(40.dp))
-
-            // 提示文字
-            Text(
-                text = stringResource(R.string.alarm_ringing),
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // 闹钟标签
-            if (alarmLabel.isNotEmpty()) {
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Button(
+                    onClick = {
+                        context.startService(Intent(context, AlarmPlaybackService::class.java).apply {
+                            action = AlarmPlaybackService.ACTION_SNOOZE_ALARM
+                        })
+                        (context as? AlarmAlertActivity)?.finish()
+                    },
+                    shape = btnShape,
+                    colors = btnColors,
+                    modifier = Modifier.weight(1f).height(56.dp)
                 ) {
-                    Text(
-                        text = alarmLabel,
-                        fontSize = 18.sp,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Icon(Icons.Default.Snooze, null, modifier = Modifier.size(20.dp), tint = AlarmColorConfig.ButtonText)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(stringResource(R.string.alarm_snooze), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = AlarmColorConfig.ButtonText)
+                }
+
+                Button(
+                    onClick = {
+                        context.startService(Intent(context, AlarmPlaybackService::class.java).apply {
+                            action = AlarmPlaybackService.ACTION_STOP_ALARM
+                        })
+                        (context as? AlarmAlertActivity)?.finish()
+                    },
+                    shape = btnShape,
+                    colors = ButtonDefaults.buttonColors(containerColor = AlarmColorConfig.ButtonDanger),
+                    modifier = Modifier.weight(1f).height(56.dp)
+                ) {
+                    Icon(Icons.Default.Stop, null, modifier = Modifier.size(20.dp), tint = AlarmColorConfig.ButtonText)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(stringResource(R.string.alarm_stop_button), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AlarmColorConfig.ButtonText)
                 }
             }
 
-            Spacer(modifier = Modifier.height(48.dp))
+            if (isVibrating) {
+                Spacer(modifier = Modifier.height(12.dp))
 
-            // 停止按钮
-            Button(
-                onClick = {
-                    AlarmPlaybackService.stopAlarm()
-                    (context as? AlarmAlertActivity)?.finish()
-                },
-                shape = RoundedCornerShape(20.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error
-                ),
-                modifier = Modifier
-                    .fillMaxWidth(0.65f)
-                    .height(72.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Stop,
-                    contentDescription = stringResource(R.string.alarm_stop),
-                    modifier = Modifier.size(32.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = stringResource(R.string.alarm_stop_button),
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Stop vibration only button
-            Button(
-                onClick = {
-                    AlarmPlaybackService.stopVibrationOnly()
-                },
-                shape = RoundedCornerShape(20.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
-                modifier = Modifier
-                    .fillMaxWidth(0.65f)
-                    .height(56.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Vibration,
-                    contentDescription = stringResource(R.string.alarm_stop_vibrate),
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.alarm_stop_vibrate),
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // 贪睡按钮
-            Button(
-                onClick = {
-                    val intent = Intent(context, AlarmPlaybackService::class.java).apply {
-                        action = AlarmPlaybackService.ACTION_SNOOZE_ALARM
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Button(
+                        onClick = {
+                            context.startService(Intent(context, AlarmPlaybackService::class.java).apply {
+                                action = AlarmPlaybackService.ACTION_PAUSE_VIBRATE
+                            })
+                            isVibrating = false
+                        },
+                        shape = btnShape,
+                        colors = ButtonDefaults.buttonColors(containerColor = AlarmColorConfig.ButtonSecondary),
+                        modifier = Modifier.weight(1f).height(56.dp)
+                    ) {
+                        Icon(Icons.Default.Pause, null, modifier = Modifier.size(20.dp), tint = AlarmColorConfig.ButtonText)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(stringResource(R.string.alarm_pause_vibrate), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = AlarmColorConfig.ButtonText)
                     }
-                    context.startService(intent)
-                    (context as? AlarmAlertActivity)?.finish()
-                },
-                shape = RoundedCornerShape(20.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
-                modifier = Modifier
-                    .fillMaxWidth(0.65f)
-                    .height(56.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Snooze,
-                    contentDescription = stringResource(R.string.alarm_snooze),
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.alarm_snooze),
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
-                )
+
+                    Button(
+                        onClick = {
+                            context.startService(Intent(context, AlarmPlaybackService::class.java).apply {
+                                action = AlarmPlaybackService.ACTION_STOP_VIBRATE
+                            })
+                            isVibrating = false
+                        },
+                        shape = btnShape,
+                        colors = ButtonDefaults.buttonColors(containerColor = AlarmColorConfig.ButtonSecondary),
+                        modifier = Modifier.weight(1f).height(56.dp)
+                    ) {
+                        Icon(Icons.Default.Vibration, null, modifier = Modifier.size(20.dp), tint = AlarmColorConfig.ButtonText)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(stringResource(R.string.alarm_stop_vibrate), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = AlarmColorConfig.ButtonText)
+                    }
+                }
             }
+        }
+    }
+}
 
-            Spacer(modifier = Modifier.height(24.dp))
+@Composable
+private fun SongInfoRow(title: String, artist: String, onNextSong: () -> Unit) {
+    var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+    val containerWidth = with(LocalDensity.current) { 280.dp.toPx() }
+    val textWidth = layoutResult?.size?.width?.toFloat() ?: 0f
+    val isOverflow = textWidth > containerWidth
 
-            // 提示
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                if (isOverflow) {
+                    val transition = rememberInfiniteTransition(label = "marquee")
+                    val offset by transition.animateFloat(
+                        initialValue = 0f,
+                        targetValue = -abs(textWidth - containerWidth),
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(durationMillis = title.length * 150, delayMillis = 1000, easing = LinearEasing),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "offset"
+                    )
+                    Text(
+                        text = title,
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = AlarmColorConfig.TextPrimary,
+                        maxLines = 1,
+                        softWrap = false,
+                        modifier = Modifier.offset(x = with(LocalDensity.current) { offset.toDp() }),
+                        onTextLayout = { layoutResult = it }
+                    )
+                } else {
+                    Text(
+                        text = title,
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = AlarmColorConfig.TextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        onTextLayout = { layoutResult = it }
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = stringResource(R.string.alarm_stop_hint),
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f)
+                text = artist,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Light,
+                color = AlarmColorConfig.TextSecondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        FloatingActionButton(
+            onClick = onNextSong,
+            shape = CircleShape,
+            containerColor = AlarmColorConfig.ButtonPrimary,
+            contentColor = AlarmColorConfig.ButtonText,
+            modifier = Modifier.size(56.dp)
+        ) {
+            Icon(Icons.Default.SkipNext, contentDescription = "下一首", modifier = Modifier.size(28.dp))
+        }
+    }
+}
+
+private fun Modifier.noiseOverlay(): Modifier = this.drawWithCache {
+    val w = size.width.toInt().coerceAtLeast(1)
+    val h = size.height.toInt().coerceAtLeast(1)
+    val step = 3
+    val noiseBitmap = androidx.compose.ui.graphics.ImageBitmap(w, h)
+    val canvas = androidx.compose.ui.graphics.Canvas(noiseBitmap)
+    val rng = java.util.Random(42)
+    val paint = Paint().apply { alpha = AlarmColorConfig.NoiseAlpha }
+    for (x in 0 until w step step) {
+        for (y in 0 until h step step) {
+            val gray = AlarmColorConfig.NoiseGrayMin + rng.nextInt(AlarmColorConfig.NoiseGrayMax - AlarmColorConfig.NoiseGrayMin + 1)
+            paint.color = Color(gray, gray, gray)
+            canvas.drawRect(androidx.compose.ui.geometry.Rect(x.toFloat(), y.toFloat(), (x + step).toFloat(), (y + step).toFloat()), paint)
+        }
+    }
+    onDrawBehind {
+        drawImage(noiseBitmap, alpha = AlarmColorConfig.NoiseAlpha)
     }
 }

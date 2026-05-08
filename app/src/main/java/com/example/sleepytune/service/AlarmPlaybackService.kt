@@ -33,7 +33,7 @@ class AlarmPlaybackService : android.app.Service() {
     companion object {
         private const val TAG = "AlarmPlaybackService"
         private const val NOTIFICATION_ID = 1001
-        private const val CHANNEL_ID = "alarm_playback_channel"
+        private const val CHANNEL_ID = "alarm_playback_v2"
         private const val SNOOZE_DELAY_MS = 5 * 60 * 1000L
         private const val WAKE_LOCK_TIMEOUT_MS = 10 * 60 * 1000L
 
@@ -43,6 +43,9 @@ class AlarmPlaybackService : android.app.Service() {
         const val ACTION_SNOOZE = "com.example.sleepytune.ACTION_SNOOZE"
         const val ACTION_SNOOZE_ALARM = "com.example.sleepytune.SNOOZE"
         const val ACTION_STOP_VIBRATE = "com.example.sleepytune.ACTION_STOP_VIBRATE"
+        const val ACTION_PAUSE_VIBRATE = "com.example.sleepytune.ACTION_PAUSE_VIBRATE"
+        const val ACTION_STOP_ALARM = "com.example.sleepytune.ACTION_STOP_ALARM"
+        const val ACTION_NEXT_SONG = "com.example.sleepytune.ACTION_NEXT_SONG"
 
         const val ACTION_UPDATE_PLAYBACK_INFO = "com.example.sleepytune.UPDATE_PLAYBACK_INFO"
         const val EXTRA_SONG_TITLE = "song_title"
@@ -74,6 +77,7 @@ class AlarmPlaybackService : android.app.Service() {
     private var isPlaying = false
     private var snoozeJob: Job? = null
     private var vibrateDelayJob: Job? = null
+    private var snoozeVibrateJob: Job? = null
     private var currentMusicIndex = 0
     private var musicList: List<com.example.sleepytune.data.local.entity.Music> = emptyList()
 
@@ -88,6 +92,7 @@ class AlarmPlaybackService : android.app.Service() {
     private var fadeInEnabled: Boolean = true
     private var fadeInDuration: Int = 30
     private var isVibrating: Boolean = false
+    private var vibrationPaused: Boolean = false
 
     override fun onCreate() {
         super.onCreate()
@@ -148,6 +153,18 @@ class AlarmPlaybackService : android.app.Service() {
                     stopVibrationOnly()
                     return START_NOT_STICKY
                 }
+                ACTION_PAUSE_VIBRATE -> {
+                    pauseVibrationUntilSnooze()
+                    return START_NOT_STICKY
+                }
+                ACTION_STOP_ALARM -> {
+                    stopAlarm()
+                    return START_NOT_STICKY
+                }
+                ACTION_NEXT_SONG -> {
+                    playNextSong()
+                    return START_NOT_STICKY
+                }
             }
         }
 
@@ -176,12 +193,16 @@ class AlarmPlaybackService : android.app.Service() {
         isPlaying = true
         alarmStateManager.setAlarmPlaying(true, alarmId, alarmLabel)
 
+        // 如果震动是暂停状态，不启动震动
+        if (vibrationPaused) {
+            Log.i(TAG, "震动处于暂停状态，本次不启动震动")
+        }
         // 延迟震动逻辑
-        if (shouldVibrate && vibrateDelayMinutes > 0) {
+        else if (shouldVibrate && vibrateDelayMinutes > 0) {
             Log.i(TAG, "震动将在 ${vibrateDelayMinutes} 分钟后开始")
             vibrateDelayJob = CoroutineScope(Dispatchers.Main).launch {
                 delay(vibrateDelayMinutes * 60 * 1000L)
-                if (isPlaying) {
+                if (isPlaying && !vibrationPaused) {
                     startVibration()
                 }
             }
@@ -202,6 +223,9 @@ class AlarmPlaybackService : android.app.Service() {
     private suspend fun loadAndPlayMusic() {
         when {
             ringtonePath != null -> {
+                // 单个铃声文件，提取文件名作为歌名
+                val fileName = ringtonePath!!.substringAfterLast("/").substringBeforeLast(".")
+                broadcastPlaybackInfo(fileName, "闹钟铃声", 0, 1)
                 playAudioFile(ringtonePath!!, isSingleFile = true, isFirstSong = true)
             }
             playlistId > 0 -> {
@@ -250,6 +274,9 @@ class AlarmPlaybackService : android.app.Service() {
     }
 
     private fun broadcastPlaybackInfo(title: String, artist: String, index: Int, total: Int) {
+        // 更新状态管理器
+        alarmStateManager.setSongInfo(title, artist)
+        
         val intent = Intent(ACTION_UPDATE_PLAYBACK_INFO).apply {
             putExtra(EXTRA_SONG_TITLE, title)
             putExtra(EXTRA_SONG_ARTIST, artist)
@@ -339,6 +366,9 @@ class AlarmPlaybackService : android.app.Service() {
         try {
             releaseMediaPlayer()
 
+            // 发送默认铃声信息
+            broadcastPlaybackInfo("默认铃声", "系统", 0, 1)
+
             mediaPlayer = MediaPlayer().apply {
                 setAudioAttributes(
                     AudioAttributes.Builder()
@@ -392,6 +422,7 @@ class AlarmPlaybackService : android.app.Service() {
         try {
             vibrator?.cancel()
             isVibrating = false
+            vibrateDelayJob?.cancel()
             Log.i(TAG, "震动已停止")
         } catch (e: Exception) {
             Log.w(TAG, "停止振动失败: ${e.message}")
@@ -401,15 +432,34 @@ class AlarmPlaybackService : android.app.Service() {
     fun stopVibrationOnly() {
         Log.i(TAG, "仅停止震动，继续播放音乐")
         stopVibration()
-        vibrateDelayJob?.cancel()
-        // 清除震动标志，防止重新启动震动
+        snoozeVibrateJob?.cancel()
+        snoozeVibrateJob = null
         shouldVibrate = false
+        vibrationPaused = false
+        updateNotification()
+    }
+
+    fun pauseVibrationUntilSnooze() {
+        Log.i(TAG, "暂停震动，${SNOOZE_DELAY_MS / 1000}秒后恢复震动")
+        stopVibration()
+        vibrationPaused = true
+        snoozeVibrateJob?.cancel()
+        snoozeVibrateJob = CoroutineScope(Dispatchers.Main).launch {
+            delay(SNOOZE_DELAY_MS)
+            if (isPlaying && vibrationPaused) {
+                vibrationPaused = false
+                startVibration()
+                updateNotification()
+                Log.i(TAG, "稍后再震时间到，震动已恢复")
+            }
+        }
         updateNotification()
     }
 
     private fun snooze() {
         Log.i(TAG, "贪睡模式，${SNOOZE_DELAY_MS / 1000}秒后重新响铃")
 
+        snoozeVibrateJob?.cancel()
         stopAlarmSound()
         stopVibration()
         isPlaying = false
@@ -419,6 +469,9 @@ class AlarmPlaybackService : android.app.Service() {
         snoozeJob = CoroutineScope(Dispatchers.Main).launch {
             delay(SNOOZE_DELAY_MS)
             if (isPlaying.not()) {
+                // 贪睡后重置震动暂停标志
+                vibrationPaused = false
+                
                 // 重新启动闹钟提醒界面
                 val alertIntent = Intent(applicationContext, AlarmAlertActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -437,10 +490,13 @@ class AlarmPlaybackService : android.app.Service() {
 
         snoozeJob?.cancel()
         vibrateDelayJob?.cancel()
+        snoozeVibrateJob?.cancel()
         volumeManager.stopFadeIn()
         stopAlarmSound()
         stopVibration()
         isPlaying = false
+        shouldVibrate = true
+        vibrationPaused = false
         alarmStateManager.clearState()
 
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -471,6 +527,8 @@ class AlarmPlaybackService : android.app.Service() {
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "闹钟正在播放中"
+                enableVibration(false)
+                setSound(null, null)
                 setShowBadge(false)
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             }
@@ -505,6 +563,14 @@ class AlarmPlaybackService : android.app.Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val pauseVibrateIntent = Intent(this, AlarmPlaybackReceiver::class.java).apply {
+            action = ACTION_PAUSE_VIBRATE
+        }
+        val pauseVibratePendingIntent = PendingIntent.getBroadcast(
+            this, 4, pauseVibrateIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val contentText = if (musicList.isNotEmpty() && currentMusicIndex < musicList.size) {
             "${musicList[currentMusicIndex].title} (${currentMusicIndex + 1}/${musicList.size})"
         } else {
@@ -518,12 +584,15 @@ class AlarmPlaybackService : android.app.Service() {
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
+            .setDefaults(0)
+            .setSound(null)
             .addAction(android.R.drawable.ic_media_pause, "停止", stopPendingIntent)
             .addAction(android.R.drawable.ic_media_next, "贪睡", snoozePendingIntent)
 
-        // 如果正在震动，显示关闭震动按钮
+        // 震动相关按钮
         if (isVibrating) {
             builder.addAction(android.R.drawable.ic_lock_silent_mode, "关闭震动", stopVibratePendingIntent)
+            builder.addAction(android.R.drawable.ic_media_pause, "稍后再震", pauseVibratePendingIntent)
         }
 
         return builder.build()
@@ -545,6 +614,7 @@ class AlarmPlaybackService : android.app.Service() {
         releaseWakeLock()
         snoozeJob?.cancel()
         vibrateDelayJob?.cancel()
+        snoozeVibrateJob?.cancel()
         volumeManager.stopFadeIn()
         alarmStateManager.clearState()
     }

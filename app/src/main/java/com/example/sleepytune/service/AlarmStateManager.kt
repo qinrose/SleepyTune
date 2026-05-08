@@ -24,11 +24,25 @@ class AlarmStateManager @Inject constructor() {
     private val _alarmLabel = MutableStateFlow("")
     val alarmLabel: StateFlow<String> = _alarmLabel.asStateFlow()
     
+    // 歌曲标题
+    private val _songTitle = MutableStateFlow("")
+    val songTitle: StateFlow<String> = _songTitle.asStateFlow()
+    
+    // 歌曲艺术家
+    private val _songArtist = MutableStateFlow("")
+    val songArtist: StateFlow<String> = _songArtist.asStateFlow()
+    
     // 设置闹钟播放状态
     fun setAlarmPlaying(isPlaying: Boolean, alarmId: Long = -1L, label: String = "") {
         _isAlarmPlaying.value = isPlaying
         _currentAlarmId.value = alarmId
         _alarmLabel.value = label
+    }
+    
+    // 设置歌曲信息
+    fun setSongInfo(title: String, artist: String) {
+        _songTitle.value = title
+        _songArtist.value = artist
     }
     
     // 停止闹钟
@@ -50,5 +64,7 @@ class AlarmStateManager @Inject constructor() {
         _isAlarmPlaying.value = false
         _currentAlarmId.value = -1L
         _alarmLabel.value = ""
+        _songTitle.value = ""
+        _songArtist.value = ""
     }
 }

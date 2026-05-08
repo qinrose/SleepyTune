@@ -255,12 +255,12 @@ private fun PlaylistCard(
             }
             if (selectedPlaylistId > 0) {
                 Spacer(modifier = Modifier.height(12.dp))
-                Text(stringResource(R.string.settings_theme), style = MaterialTheme.typography.labelMedium,
+                Text(stringResource(R.string.playback_order), style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.secondary)
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    PlayModeItem(Icons.Default.Sort, stringResource(R.string.sort_name), !shuffleMode) { onShuffleModeChanged(false) }
-                    PlayModeItem(Icons.Default.Shuffle, stringResource(R.string.sort_name), shuffleMode) { onShuffleModeChanged(true) }
+                    PlayModeItem(Icons.Default.Sort, stringResource(R.string.playback_sequential), !shuffleMode) { onShuffleModeChanged(false) }
+                    PlayModeItem(Icons.Default.Shuffle, stringResource(R.string.playback_shuffle), shuffleMode) { onShuffleModeChanged(true) }
                 }
             }
         }

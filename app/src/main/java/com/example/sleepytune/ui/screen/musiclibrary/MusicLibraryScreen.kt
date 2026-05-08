@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -49,6 +50,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -93,6 +95,12 @@ enum class SortType(val labelRes: Int) {
     DATE_ADDED(R.string.sort_date_added)
 }
 
+enum class ViewMode(val labelRes: Int) {
+    ALL(R.string.view_all),
+    BY_ARTIST(R.string.view_artist),
+    BY_ALBUM(R.string.view_album)
+}
+
 enum class FileFilter(val labelRes: Int, val extensions: Set<String>) {
     ALL(R.string.filter_all, emptySet()),
     MP3(R.string.filter_mp3, setOf("mp3")),
@@ -106,6 +114,12 @@ enum class DurationFilter(val labelRes: Int, val minDuration: Int?, val maxDurat
     SHORT(R.string.filter_short, null, 60000),
     LONG(R.string.filter_long, 60000, null)
 }
+
+// 歌手列表项
+data class ArtistItem(val name: String, val musicCount: Int, val albumArtUri: String?)
+
+// 专辑列表项
+data class AlbumItem(val name: String, val musicCount: Int, val albumArtUri: String?, val artist: String)
 
 fun Context.findActivity(): ComponentActivity? {
     var currentContext = this
@@ -133,9 +147,13 @@ fun MusicLibraryScreen(navController: NavController) {
     var sortType by remember { mutableStateOf(SortType.TITLE) }
     var fileFilter by remember { mutableStateOf(FileFilter.ALL) }
     var durationFilter by remember { mutableStateOf(DurationFilter.ALL) }
+    var viewMode by remember { mutableStateOf(ViewMode.ALL) }
+    var selectedArtist by remember { mutableStateOf<String?>(null) }
+    var selectedAlbum by remember { mutableStateOf<String?>(null) }
     var showSortMenu by remember { mutableStateOf(false) }
     var showFilterMenu by remember { mutableStateOf(false) }
     var showDurationMenu by remember { mutableStateOf(false) }
+    var showViewModeMenu by remember { mutableStateOf(false) }
     var isSearchExpanded by remember { mutableStateOf(false) }
     var selectedMusicId by remember { mutableStateOf<Long?>(null) }
     var showPlaylistDialog by remember { mutableStateOf(false) }
@@ -177,6 +195,35 @@ fun MusicLibraryScreen(navController: NavController) {
             SortType.DURATION -> filtered.sortedByDescending { it.duration }
             SortType.DATE_ADDED -> filtered.sortedByDescending { it.id }
         }
+    }
+
+    val unknownArtistText = stringResource(R.string.music_unknown_artist)
+    val unknownAlbumText = stringResource(R.string.music_unknown_album)
+
+    // 按歌手分组的列表
+    val artistList = remember(filteredMusic, unknownArtistText) {
+        filteredMusic.groupBy { it.artist.ifEmpty { unknownArtistText } }
+            .map { (artist, musics) -> ArtistItem(artist, musics.size, musics.firstOrNull()?.albumArtUri) }
+            .sortedBy { it.name.lowercase() }
+    }
+
+    // 按专辑分组的列表
+    val albumList = remember(filteredMusic, unknownAlbumText) {
+        filteredMusic.groupBy { it.album.ifEmpty { unknownAlbumText } }
+            .map { (album, musics) -> AlbumItem(album, musics.size, musics.firstOrNull()?.albumArtUri, musics.firstOrNull()?.artist ?: "") }
+            .sortedBy { it.name.lowercase() }
+    }
+
+    // 选中歌手后的音乐列表
+    val artistMusicList = remember(filteredMusic, selectedArtist) {
+        if (selectedArtist != null) filteredMusic.filter { it.artist == selectedArtist }
+        else emptyList()
+    }
+
+    // 选中专辑后的音乐列表
+    val albumMusicList = remember(filteredMusic, selectedAlbum) {
+        if (selectedAlbum != null) filteredMusic.filter { it.album == selectedAlbum }
+        else emptyList()
     }
 
     Scaffold(
@@ -246,10 +293,38 @@ fun MusicLibraryScreen(navController: NavController) {
                             }
                             DropdownMenu(
                                 expanded = showFilterMenu,
-                                onDismissRequest = { showFilterMenu = false },
-                                containerColor = MaterialTheme.colorScheme.surface,
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                                onDismissRequest = { showFilterMenu = false }
                             ) {
+                                DropdownMenuItem(
+                                    text = { Text("视图模式", style = MaterialTheme.typography.bodyMedium) },
+                                    onClick = { },
+                                    enabled = false
+                                )
+                                ViewMode.entries.forEach { mode ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(stringResource(mode.labelRes), style = MaterialTheme.typography.bodyMedium)
+                                                if (viewMode == mode) {
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                    Text("✓", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
+                                                }
+                                            }
+                                        },
+                                        onClick = {
+                                            viewMode = mode
+                                            selectedArtist = null
+                                            selectedAlbum = null
+                                            showFilterMenu = false
+                                        }
+                                    )
+                                }
+                                HorizontalDivider()
+                                DropdownMenuItem(
+                                    text = { Text("文件类型", style = MaterialTheme.typography.bodyMedium) },
+                                    onClick = { },
+                                    enabled = false
+                                )
                                 FileFilter.entries.forEach { filter ->
                                     DropdownMenuItem(
                                         text = {
@@ -272,9 +347,7 @@ fun MusicLibraryScreen(navController: NavController) {
                             }
                             DropdownMenu(
                                 expanded = showDurationMenu,
-                                onDismissRequest = { showDurationMenu = false },
-                                containerColor = MaterialTheme.colorScheme.surface,
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                                onDismissRequest = { showDurationMenu = false }
                             ) {
                                 DurationFilter.entries.forEach { filter ->
                                     DropdownMenuItem(
@@ -298,9 +371,7 @@ fun MusicLibraryScreen(navController: NavController) {
                             }
                             DropdownMenu(
                                 expanded = showSortMenu,
-                                onDismissRequest = { showSortMenu = false },
-                                containerColor = MaterialTheme.colorScheme.surface,
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                                onDismissRequest = { showSortMenu = false }
                             ) {
                                 SortType.entries.forEach { type ->
                                     DropdownMenuItem(
@@ -424,66 +495,196 @@ fun MusicLibraryScreen(navController: NavController) {
                     }
                 )
             } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)
-                ) {
-                    items(filteredMusic, key = { it.id }) { music ->
-                        AnimatedVisibility(
-                            visible = true,
-                            enter = fadeIn(animationSpec = tween(300)) + scaleIn(animationSpec = tween(300)),
-                            exit = fadeOut(animationSpec = tween(300)) + scaleOut(animationSpec = tween(300))
-                        ) {
-                            val isPlaying = when (val state = previewState) {
-                                is MusicPlayerManager.PreviewState.Playing -> state.path == music.path
-                                else -> false
+                // 按歌手视图
+                if (viewMode == ViewMode.BY_ARTIST) {
+                    if (selectedArtist != null) {
+                        // 显示歌手的音乐
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                IconButton(onClick = { selectedArtist = null }) {
+                                    Icon(Icons.Default.Close, stringResource(R.string.confirm_cancel))
+                                }
+                                Text(selectedArtist ?: "", style = MaterialTheme.typography.titleMedium)
+                                Spacer(modifier = Modifier.weight(1f))
+                                Text("${artistMusicList.size}首", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-
-                            MusicItem(
-                                music = music,
-                                isSelected = selectedIds.contains(music.id),
+                            ArtistMusicList(
+                                musicList = artistMusicList,
+                                selectedIds = selectedIds,
                                 isSelectionMode = isSelectionMode,
-                                isPlaying = isPlaying,
-                                onClick = {
+                                previewState = previewState,
+                                onBack = { selectedArtist = null },
+                                onMusicClick = { music ->
                                     if (isSelectionMode) {
+                                        if (selectedIds.contains(music.id)) selectedIds.remove(music.id) else selectedIds.add(music.id)
+                                        if (selectedIds.isEmpty()) isSelectionMode = false
+                                    } else {
+                                        selectedMusicId = music.id
+                                        showPlaylistDialog = true
+                                    }
+                                },
+                                onMusicLongClick = { music ->
+                                    if (!isSelectionMode) { isSelectionMode = true; selectedIds.add(music.id) }
+                                },
+                                onToggleSelect = { music ->
+                                    if (selectedIds.contains(music.id)) selectedIds.remove(music.id) else selectedIds.add(music.id)
+                                    if (selectedIds.isEmpty()) isSelectionMode = false
+                                },
+                                onPlayPause = { music ->
+                                    val isPlaying = previewState is MusicPlayerManager.PreviewState.Playing && (previewState as MusicPlayerManager.PreviewState.Playing).path == music.path
+                                    if (isPlaying) musicPlayerManager.stopPreview() else musicPlayerManager.playPreview(music.path)
+                                },
+                                onAddToPlaylist = { music ->
+                                    selectedMusicId = music.id
+                                    showPlaylistDialog = true
+                                }
+                            )
+                        }
+                    } else {
+                        // 显示歌手列表
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)
+                        ) {
+                            items(artistList, key = { it.name }) { artist ->
+                                ArtistListItem(
+                                    artist = artist,
+                                    onClick = { selectedArtist = artist.name }
+                                )
+                            }
+                        }
+                    }
+                } else if (viewMode == ViewMode.BY_ALBUM) {
+                    // 按专辑视图
+                    if (selectedAlbum != null) {
+                        // 显示专辑的音乐
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                IconButton(onClick = { selectedAlbum = null }) {
+                                    Icon(Icons.Default.Close, stringResource(R.string.confirm_cancel))
+                                }
+                                Text(selectedAlbum ?: "", style = MaterialTheme.typography.titleMedium)
+                                Spacer(modifier = Modifier.weight(1f))
+                                Text("${albumMusicList.size}首", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            ArtistMusicList(
+                                musicList = albumMusicList,
+                                selectedIds = selectedIds,
+                                isSelectionMode = isSelectionMode,
+                                previewState = previewState,
+                                onBack = { selectedAlbum = null },
+                                onMusicClick = { music ->
+                                    if (isSelectionMode) {
+                                        if (selectedIds.contains(music.id)) selectedIds.remove(music.id) else selectedIds.add(music.id)
+                                        if (selectedIds.isEmpty()) isSelectionMode = false
+                                    } else {
+                                        selectedMusicId = music.id
+                                        showPlaylistDialog = true
+                                    }
+                                },
+                                onMusicLongClick = { music ->
+                                    if (!isSelectionMode) { isSelectionMode = true; selectedIds.add(music.id) }
+                                },
+                                onToggleSelect = { music ->
+                                    if (selectedIds.contains(music.id)) selectedIds.remove(music.id) else selectedIds.add(music.id)
+                                    if (selectedIds.isEmpty()) isSelectionMode = false
+                                },
+                                onPlayPause = { music ->
+                                    val isPlaying = previewState is MusicPlayerManager.PreviewState.Playing && (previewState as MusicPlayerManager.PreviewState.Playing).path == music.path
+                                    if (isPlaying) musicPlayerManager.stopPreview() else musicPlayerManager.playPreview(music.path)
+                                },
+                                onAddToPlaylist = { music ->
+                                    selectedMusicId = music.id
+                                    showPlaylistDialog = true
+                                }
+                            )
+                        }
+                    } else {
+                        // 显示专辑列表
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)
+                        ) {
+                            items(albumList, key = { it.name }) { album ->
+                                AlbumListItem(
+                                    album = album,
+                                    onClick = { selectedAlbum = album.name }
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    // 默认显示所有音乐
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)
+                    ) {
+                        itemsIndexed(filteredMusic, key = { _, music -> music.id }) { index, music ->
+                            AnimatedVisibility(
+                                visible = true,
+                                enter = fadeIn(animationSpec = tween(300)) + scaleIn(animationSpec = tween(300)),
+                                exit = fadeOut(animationSpec = tween(300)) + scaleOut(animationSpec = tween(300))
+                            ) {
+                                val isPlaying = when (val state = previewState) {
+                                    is MusicPlayerManager.PreviewState.Playing -> state.path == music.path
+                                    else -> false
+                                }
+
+                                MusicItem(
+                                    music = music,
+                                    index = index + 1,
+                                    isSelected = selectedIds.contains(music.id),
+                                    isSelectionMode = isSelectionMode,
+                                    isPlaying = isPlaying,
+                                    onClick = {
+                                        if (isSelectionMode) {
+                                            if (selectedIds.contains(music.id)) {
+                                                selectedIds.remove(music.id)
+                                                if (selectedIds.isEmpty()) isSelectionMode = false
+                                            } else {
+                                                selectedIds.add(music.id)
+                                            }
+                                        } else {
+                                            selectedMusicId = music.id
+                                            showPlaylistDialog = true
+                                        }
+                                    },
+                                    onLongClick = {
+                                        if (!isSelectionMode) {
+                                            isSelectionMode = true
+                                            selectedIds.add(music.id)
+                                        }
+                                    },
+                                    onToggleSelect = {
                                         if (selectedIds.contains(music.id)) {
                                             selectedIds.remove(music.id)
                                             if (selectedIds.isEmpty()) isSelectionMode = false
                                         } else {
                                             selectedIds.add(music.id)
                                         }
-                                    } else {
+                                    },
+                                    onPlayPause = {
+                                        if (isPlaying) {
+                                            musicPlayerManager.stopPreview()
+                                        } else {
+                                            musicPlayerManager.playPreview(music.path)
+                                        }
+                                    },
+                                    onAddToPlaylist = {
                                         selectedMusicId = music.id
                                         showPlaylistDialog = true
                                     }
-                                },
-                                onLongClick = {
-                                    if (!isSelectionMode) {
-                                        isSelectionMode = true
-                                        selectedIds.add(music.id)
-                                    }
-                                },
-                                onToggleSelect = {
-                                    if (selectedIds.contains(music.id)) {
-                                        selectedIds.remove(music.id)
-                                        if (selectedIds.isEmpty()) isSelectionMode = false
-                                    } else {
-                                        selectedIds.add(music.id)
-                                    }
-                                },
-                                onPlayPause = {
-                                    if (isPlaying) {
-                                        musicPlayerManager.stopPreview()
-                                    } else {
-                                        musicPlayerManager.playPreview(music.path)
-                                    }
-                                },
-                                onAddToPlaylist = {
-                                    selectedMusicId = music.id
-                                    showPlaylistDialog = true
-                                }
-                            )
+                                )
+                            }
                         }
                     }
                 }
@@ -718,6 +919,7 @@ private fun PlaylistSelectDialog(
 @Composable
 private fun MusicItem(
     music: com.example.sleepytune.data.local.entity.Music,
+    index: Int,
     isSelected: Boolean,
     isSelectionMode: Boolean,
     isPlaying: Boolean,
@@ -768,6 +970,14 @@ private fun MusicItem(
                     )
                 }
                 Spacer(modifier = Modifier.width(6.dp))
+            } else {
+                Text(
+                    text = index.toString(),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.width(32.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
             }
 
             if (!music.albumArtUri.isNullOrEmpty()) {
@@ -777,25 +987,8 @@ private fun MusicItem(
                     modifier = Modifier.size(52.dp).clip(RoundedCornerShape(10.dp)),
                     contentScale = ContentScale.Crop
                 )
-                Spacer(modifier = Modifier.width(12.dp))
-            } else {
-                Card(
-                    modifier = Modifier.size(52.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                ) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.MusicNote,
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.width(12.dp))
             }
+            Spacer(modifier = Modifier.width(if (music.albumArtUri.isNullOrEmpty()) 0.dp else 12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -841,6 +1034,117 @@ private fun MusicItem(
                         MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                     modifier = Modifier.size(22.dp)
                 )
+            }
+        }
+    }
+}
+
+// 歌手列表项（不带音符icon）
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ArtistListItem(artist: ArtistItem, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).combinedClickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (!artist.albumArtUri.isNullOrEmpty()) {
+                AsyncImage(model = artist.albumArtUri, contentDescription = null, modifier = Modifier.size(52.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
+                Spacer(modifier = Modifier.width(12.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = artist.name, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(text = "${artist.musicCount}首", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+            }
+        }
+    }
+}
+
+// 专辑列表项（不带音符icon）
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun AlbumListItem(album: AlbumItem, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).combinedClickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (!album.albumArtUri.isNullOrEmpty()) {
+                AsyncImage(model = album.albumArtUri, contentDescription = null, modifier = Modifier.size(52.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
+                Spacer(modifier = Modifier.width(12.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = album.name, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(text = "${album.artist} · ${album.musicCount}首", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+            }
+        }
+    }
+}
+
+// 歌手/专辑详情页的音乐列表（不带音符icon）
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ArtistMusicList(
+    musicList: List<com.example.sleepytune.data.local.entity.Music>,
+    selectedIds: List<Long>,
+    isSelectionMode: Boolean,
+    previewState: MusicPlayerManager.PreviewState,
+    onBack: () -> Unit,
+    onMusicClick: (com.example.sleepytune.data.local.entity.Music) -> Unit,
+    onMusicLongClick: (com.example.sleepytune.data.local.entity.Music) -> Unit,
+    onToggleSelect: (com.example.sleepytune.data.local.entity.Music) -> Unit,
+    onPlayPause: (com.example.sleepytune.data.local.entity.Music) -> Unit,
+    onAddToPlaylist: (com.example.sleepytune.data.local.entity.Music) -> Unit
+) {
+    LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)) {
+        items(musicList, key = { it.id }) { music ->
+            val isPlaying = previewState is MusicPlayerManager.PreviewState.Playing && (previewState as MusicPlayerManager.PreviewState.Playing).path == music.path
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).combinedClickable(
+                    onClick = { onMusicClick(music) },
+                    onLongClick = { onMusicLongClick(music) }
+                ),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = if (selectedIds.contains(music.id)) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                border = BorderStroke(width = if (selectedIds.contains(music.id)) 1.5.dp else 1.dp, color = if (selectedIds.contains(music.id)) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (isSelectionMode) {
+                        IconButton(onClick = { onToggleSelect(music) }, modifier = Modifier.size(36.dp)) {
+                            Icon(imageVector = if (selectedIds.contains(music.id)) Icons.Default.CheckCircle else Icons.Outlined.Circle, contentDescription = null, tint = if (selectedIds.contains(music.id)) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f), modifier = Modifier.size(22.dp))
+                        }
+                        Spacer(modifier = Modifier.width(6.dp))
+                    }
+                    if (!music.albumArtUri.isNullOrEmpty()) {
+                        AsyncImage(model = music.albumArtUri, contentDescription = stringResource(R.string.music_title), modifier = Modifier.size(52.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
+                        Spacer(modifier = Modifier.width(12.dp))
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(text = music.title, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(text = music.artist, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                        val durationMin = music.duration / 60000
+                        val durationSec = (music.duration % 60000) / 1000
+                        Text(text = String.format("%d:%02d", durationMin, durationSec), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                    }
+                    if (!isSelectionMode) {
+                        IconButton(onClick = { onAddToPlaylist(music) }, modifier = Modifier.size(36.dp)) {
+                            Icon(imageVector = Icons.Default.Add, contentDescription = stringResource(R.string.music_add_to_playlist), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
+                        }
+                    }
+                    IconButton(onClick = { onPlayPause(music) }, modifier = Modifier.size(40.dp)) {
+                        Icon(imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, contentDescription = if (isPlaying) stringResource(R.string.music_pause) else stringResource(R.string.music_play), tint = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(22.dp))
+                    }
+                }
             }
         }
     }
