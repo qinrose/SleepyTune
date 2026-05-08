@@ -93,6 +93,7 @@
     <string name="filter_all_duration">全部时长</string>
     <string name="filter_short">小于1分钟</string>
     <string name="filter_long">大于1分钟</string>
+    <string name="filter_custom">自定义</string>
 
     <!-- Playlist -->
     <string name="playlist_title">歌单管理</string>
@@ -289,6 +290,8 @@
     <!-- Snooze -->
     <string name="snooze_minutes">贪睡 %d 分钟</string>
     <string name="snooze_resume">贪睡结束，闹钟将再次响起</string>
+    <string name="snooze_time_or_vibrate_delay">贪睡时间/稍后震动</string>
+    <string name="snooze_time_hint">贪睡和稍后震动的时间间隔</string>
 
     <!-- Quick Repeat Options -->
     <string name="repeat_quick_options">快捷选项</string>

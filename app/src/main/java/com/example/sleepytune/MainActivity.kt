@@ -61,16 +61,7 @@ class MainActivity : AppCompatActivity() {
         PermissionUtils.initPermissionLaunchers(this)
 
         // 检查是否有活动的闹钟，如果有则直接启动闹钟界面
-        if (alarmStateManager.isAlarmPlaying.value) {
-            val alarmLabel = alarmStateManager.alarmLabel.value
-            startActivity(Intent(this, AlarmAlertActivity::class.java).apply {
-                putExtra("alarm_id", -1L)
-                putExtra("label", alarmLabel)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            })
-            finish()
-            return
-        }
+        checkAndLaunchAlarmAlert()
 
         setContent {
             // 主题已由 AppCompatDelegate 处理 - SleepyTuneTheme 使用 LocalConfiguration
@@ -87,6 +78,24 @@ class MainActivity : AppCompatActivity() {
                     MainAppContent()
                 }
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // 当从后台恢复时，检查是否有活动的闹钟
+        checkAndLaunchAlarmAlert()
+    }
+
+    private fun checkAndLaunchAlarmAlert() {
+        // 使用AlarmPlaybackService的静态方法检查闹钟是否正在播放
+        if (AlarmPlaybackService.isPlaying() || alarmStateManager.isAlarmPlaying.value) {
+            val alarmLabel = alarmStateManager.alarmLabel.value
+            startActivity(Intent(this, AlarmAlertActivity::class.java).apply {
+                putExtra("alarm_id", -1L)
+                putExtra("label", alarmLabel)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            })
         }
     }
 
@@ -234,8 +243,8 @@ fun MainScreen() {
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-                tonalElevation = 8.dp
+                containerColor = MaterialTheme.colorScheme.surface,
+                tonalElevation = 0.dp
             ) {
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = navBackStackEntry?.destination?.route

@@ -22,6 +22,7 @@ data class Alarm(
     val ringtone: String? = null,
     val vibrate: Boolean = true,
     val snoozeEnabled: Boolean = true,
+    val snoozeMinutes: Int = 5,
     val label: String? = null,
     val volume: Float = 1.0f,
     val duration: Int = 5,

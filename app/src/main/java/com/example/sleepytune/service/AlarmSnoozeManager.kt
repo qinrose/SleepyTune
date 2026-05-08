@@ -27,6 +27,7 @@ class AlarmSnoozeManager @Inject constructor(
         private const val KEY_SNOOZE_SHUFFLE = "snooze_shuffle"
         private const val KEY_SNOOZE_FADE_IN_ENABLED = "snooze_fade_in_enabled"
         private const val KEY_SNOOZE_FADE_IN_DURATION = "snooze_fade_in_duration"
+        private const val KEY_SNOOZE_MINUTES = "snooze_minutes"
         
         const val SNOOZE_MINUTES = 5
         const val ACTION_SNOOZE_TRIGGER = "com.example.sleepytune.SNOOZE_TRIGGER"
@@ -44,9 +45,10 @@ class AlarmSnoozeManager @Inject constructor(
         label: String?,
         shuffleMode: Boolean = false,
         fadeInEnabled: Boolean = true,
-        fadeInDuration: Int = 30
+        fadeInDuration: Int = 30,
+        snoozeMinutes: Int = 5
     ) {
-        val triggerTime = System.currentTimeMillis() + (SNOOZE_MINUTES * 60 * 1000L)
+        val triggerTime = System.currentTimeMillis() + (snoozeMinutes * 60 * 1000L)
         
         prefs.edit().apply {
             putLong(KEY_SNOOZE_ALARM_ID, alarmId)
@@ -59,10 +61,11 @@ class AlarmSnoozeManager @Inject constructor(
             putBoolean(KEY_SNOOZE_SHUFFLE, shuffleMode)
             putBoolean(KEY_SNOOZE_FADE_IN_ENABLED, fadeInEnabled)
             putInt(KEY_SNOOZE_FADE_IN_DURATION, fadeInDuration)
+            putInt(KEY_SNOOZE_MINUTES, snoozeMinutes)
             apply()
         }
         
-        Log.i(TAG, "贪睡状态已保存: alarmId=$alarmId, triggerTime=$triggerTime")
+        Log.i(TAG, "贪睡状态已保存: alarmId=$alarmId, triggerTime=$triggerTime, snoozeMinutes=$snoozeMinutes")
     }
     
     // 获取剩余贪睡时间(毫秒)
@@ -118,12 +121,13 @@ class AlarmSnoozeManager @Inject constructor(
         label: String?,
         shuffleMode: Boolean = false,
         fadeInEnabled: Boolean = true,
-        fadeInDuration: Int = 30
+        fadeInDuration: Int = 30,
+        snoozeMinutes: Int = 5
     ) {
-        val triggerTime = System.currentTimeMillis() + (SNOOZE_MINUTES * 60 * 1000L)
+        val triggerTime = System.currentTimeMillis() + (snoozeMinutes * 60 * 1000L)
         
         // 保存贪睡状态
-        saveSnoozeState(alarmId, playlistId, ringtone, vibrate, volume, label, shuffleMode, fadeInEnabled, fadeInDuration)
+        saveSnoozeState(alarmId, playlistId, ringtone, vibrate, volume, label, shuffleMode, fadeInEnabled, fadeInDuration, snoozeMinutes)
         
         // 调度AlarmManager
         val intent = Intent(context, AlarmReceiver::class.java).apply {
@@ -138,6 +142,7 @@ class AlarmSnoozeManager @Inject constructor(
             putExtra("shuffle_mode", shuffleMode)
             putExtra("fade_in_enabled", fadeInEnabled)
             putExtra("fade_in_duration", fadeInDuration)
+            putExtra("snooze_minutes", snoozeMinutes)
         }
         
         val pendingIntent = PendingIntent.getBroadcast(
@@ -172,7 +177,7 @@ class AlarmSnoozeManager @Inject constructor(
                 )
             }
             
-            Log.i(TAG, "贪睡闹钟已调度: ${SNOOZE_MINUTES}分钟后触发")
+            Log.i(TAG, "贪睡闹钟已调度: ${snoozeMinutes}分钟后触发")
             
         } catch (e: SecurityException) {
             Log.e(TAG, "调度贪睡闹钟失败: ${e.message}", e)
@@ -194,7 +199,8 @@ class AlarmSnoozeManager @Inject constructor(
             triggerTime = prefs.getLong(KEY_SNOOZE_TRIGGER_TIME, 0L),
             shuffleMode = prefs.getBoolean(KEY_SNOOZE_SHUFFLE, false),
             fadeInEnabled = prefs.getBoolean(KEY_SNOOZE_FADE_IN_ENABLED, true),
-            fadeInDuration = prefs.getInt(KEY_SNOOZE_FADE_IN_DURATION, 30)
+            fadeInDuration = prefs.getInt(KEY_SNOOZE_FADE_IN_DURATION, 30),
+            snoozeMinutes = prefs.getInt(KEY_SNOOZE_MINUTES, 5)
         )
     }
     
@@ -215,5 +221,6 @@ data class SnoozeInfo(
     val triggerTime: Long,
     val shuffleMode: Boolean = false,
     val fadeInEnabled: Boolean = true,
-    val fadeInDuration: Int = 30
+    val fadeInDuration: Int = 30,
+    val snoozeMinutes: Int = 5
 )

@@ -49,6 +49,10 @@ class AlarmEditViewModel @Inject constructor(
         _alarm.value = _alarm.value.copy(snoozeEnabled = snoozeEnabled)
     }
 
+    fun setSnoozeMinutes(minutes: Int) {
+        _alarm.value = _alarm.value.copy(snoozeMinutes = minutes)
+    }
+
     fun setLabel(label: String?) {
         _alarm.value = _alarm.value.copy(label = label)
     }

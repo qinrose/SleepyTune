@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -117,7 +118,7 @@ fun PlaylistDetailScreen(navController: NavController, playlistId: Long) {
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)
                 ) {
-                    items(playlistSongs, key = { it.id }) { song ->
+                    itemsIndexed(playlistSongs, key = { _, song -> song.id }) { index, song ->
                         AnimatedVisibility(
                             visible = true,
                             enter = fadeIn(animationSpec = tween(300)) + scaleIn(animationSpec = tween(300)),
@@ -125,6 +126,7 @@ fun PlaylistDetailScreen(navController: NavController, playlistId: Long) {
                         ) {
                             PlaylistSongItem(
                                 song = song,
+                                index = index + 1,
                                 onPlay = { /* TODO: 播放歌曲 */ },
                                 onDelete = { viewModel.removeSongFromPlaylist(playlistId, song.id) }
                             )
@@ -176,6 +178,7 @@ private fun EmptyPlaylistState() {
 @Composable
 private fun PlaylistSongItem(
     song: com.example.sleepytune.data.local.entity.Music,
+    index: Int,
     onPlay: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -198,6 +201,16 @@ private fun PlaylistSongItem(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // 显示数字
+            Text(
+                text = index.toString(),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.width(40.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+
             // 专辑封面
             if (!song.albumArtUri.isNullOrEmpty()) {
                 AsyncImage(

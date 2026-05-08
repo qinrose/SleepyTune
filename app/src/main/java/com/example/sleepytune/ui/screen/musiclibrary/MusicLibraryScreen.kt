@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Sort
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -58,6 +59,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.ui.window.Dialog
@@ -112,7 +115,8 @@ enum class FileFilter(val labelRes: Int, val extensions: Set<String>) {
 enum class DurationFilter(val labelRes: Int, val minDuration: Int?, val maxDuration: Int?) {
     ALL(R.string.filter_all_duration, null, null),
     SHORT(R.string.filter_short, null, 60000),
-    LONG(R.string.filter_long, 60000, null)
+    LONG(R.string.filter_long, 60000, null),
+    CUSTOM(R.string.filter_custom, null, null)
 }
 
 // 歌手列表项
@@ -157,6 +161,8 @@ fun MusicLibraryScreen(navController: NavController) {
     var isSearchExpanded by remember { mutableStateOf(false) }
     var selectedMusicId by remember { mutableStateOf<Long?>(null) }
     var showPlaylistDialog by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
+    var customMinDuration by remember { mutableStateOf("") }
 
     val selectedIds = remember { mutableStateListOf<Long>() }
     var isSelectionMode by remember { mutableStateOf(false) }
@@ -186,6 +192,14 @@ fun MusicLibraryScreen(navController: NavController) {
                 val minOk = minDur == null || duration >= minDur
                 val maxOk = maxDur == null || duration <= maxDur
                 minOk && maxOk
+            }
+        }
+        
+        // 自定义时长过滤
+        if (durationFilter == DurationFilter.CUSTOM && customMinDuration.isNotEmpty()) {
+            val customMin = customMinDuration.toIntOrNull()?.times(1000) // 转换为毫秒
+            if (customMin != null) {
+                filtered = filtered.filter { it.duration >= customMin }
             }
         }
 
@@ -376,6 +390,9 @@ fun MusicLibraryScreen(navController: NavController) {
                             }
                         }) {
                             Icon(Icons.Default.Refresh, stringResource(R.string.music_scan), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        IconButton(onClick = { showSettingsDialog = true }) {
+                            Icon(Icons.Default.Settings, "设置", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 },
@@ -703,6 +720,69 @@ fun MusicLibraryScreen(navController: NavController) {
                     }
                 )
             }
+            
+            // 设置对话框
+            if (showSettingsDialog) {
+                AlertDialog(
+                    onDismissRequest = { showSettingsDialog = false },
+                    title = { Text("过滤设置", style = MaterialTheme.typography.titleLarge) },
+                    text = {
+                        Column {
+                            Text(
+                                "排除短时长文件",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = customMinDuration,
+                                onValueChange = { 
+                                    if (it.isEmpty() || it.all { char -> char.isDigit() }) {
+                                        customMinDuration = it
+                                    }
+                                },
+                                label = { Text("最小时长（秒）") },
+                                placeholder = { Text("例如: 45") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                textStyle = MaterialTheme.typography.bodyLarge,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                                )
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                "将排除时长小于设定值的音乐文件",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            if (customMinDuration.isNotEmpty()) {
+                                durationFilter = DurationFilter.CUSTOM
+                            }
+                            showSettingsDialog = false
+                        }) { 
+                            Text(stringResource(R.string.confirm_ok)) 
+                        }
+                    },
+                    dismissButton = { 
+                        TextButton(onClick = { 
+                            customMinDuration = ""
+                            durationFilter = DurationFilter.ALL
+                            showSettingsDialog = false 
+                        }) { 
+                            Text("重置") 
+                        }
+                    },
+                    shape = RoundedCornerShape(20.dp)
+                )
+            }
         }
     }
 }
@@ -951,7 +1031,8 @@ private fun MusicItem(
                     text = index.toString(),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.width(40.dp)
+                    modifier = Modifier.width(40.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
                 Spacer(modifier = Modifier.width(6.dp))
             }

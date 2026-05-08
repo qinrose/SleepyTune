@@ -31,6 +31,7 @@ class AlarmReceiver : BroadcastReceiver() {
         const val EXTRA_SHUFFLE_MODE = "shuffle_mode"
         const val EXTRA_FADE_IN_ENABLED = "fade_in_enabled"
         const val EXTRA_FADE_IN_DURATION = "fade_in_duration"
+        const val EXTRA_SNOOZE_MINUTES = "snooze_minutes"
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -79,8 +80,9 @@ class AlarmReceiver : BroadcastReceiver() {
         val shuffleMode = intent.getBooleanExtra(EXTRA_SHUFFLE_MODE, false)
         val fadeInEnabled = intent.getBooleanExtra(EXTRA_FADE_IN_ENABLED, true)
         val fadeInDuration = intent.getIntExtra(EXTRA_FADE_IN_DURATION, 30)
+        val snoozeMinutes = intent.getIntExtra(EXTRA_SNOOZE_MINUTES, 5)
 
-        Log.i(TAG, "Alarm triggered: id=$alarmId, playlist=$playlistId, vibrate=$vibrate, delay=$vibrateDelayMinutes")
+        Log.i(TAG, "Alarm triggered: id=$alarmId, playlist=$playlistId, vibrate=$vibrate, delay=$vibrateDelayMinutes, snooze=$snoozeMinutes")
 
         val serviceIntent = Intent(context, AlarmPlaybackService::class.java).apply {
             putExtra("alarm_id", alarmId)
@@ -93,6 +95,7 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("shuffle_mode", shuffleMode)
             putExtra("fade_in_enabled", fadeInEnabled)
             putExtra("fade_in_duration", fadeInDuration)
+            putExtra("snooze_minutes", snoozeMinutes)
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

@@ -93,6 +93,7 @@
     <string name="filter_all_duration">All Durations</string>
     <string name="filter_short">Less than 1 min</string>
     <string name="filter_long">More than 1 min</string>
+    <string name="filter_custom">Custom</string>
 
     <!-- Playlist -->
     <string name="playlist_title">Playlists</string>
@@ -289,6 +290,8 @@
     <!-- Snooze -->
     <string name="snooze_minutes">Snooze for %d minutes</string>
     <string name="snooze_resume">Snooze ends, alarm will ring again</string>
+    <string name="snooze_time_or_vibrate_delay">Snooze Time / Vibrate Delay</string>
+    <string name="snooze_time_hint">Time interval for snooze and delayed vibration</string>
 
     <!-- Quick Repeat Options -->
     <string name="repeat_quick_options">Quick Options</string>

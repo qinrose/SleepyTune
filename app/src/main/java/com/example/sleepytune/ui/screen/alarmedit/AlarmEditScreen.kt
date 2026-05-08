@@ -81,6 +81,7 @@ fun AlarmEditScreen(navController: NavController, alarmId: Long?) {
     var vibrate by remember { mutableStateOf(alarm.vibrate) }
     var vibrateDelayMinutes by remember { mutableIntStateOf(alarm.vibrateDelayMinutes) }
     var snoozeEnabled by remember { mutableStateOf(alarm.snoozeEnabled) }
+    var snoozeMinutes by remember { mutableIntStateOf(alarm.snoozeMinutes) }
     var volume by remember { mutableStateOf(alarm.volume) }
     var shuffleMode by remember { mutableStateOf(alarm.shuffleMode) }
     var fadeInEnabled by remember { mutableStateOf(alarm.fadeInEnabled) }
@@ -95,6 +96,7 @@ fun AlarmEditScreen(navController: NavController, alarmId: Long?) {
         vibrate = alarm.vibrate
         vibrateDelayMinutes = alarm.vibrateDelayMinutes
         snoozeEnabled = alarm.snoozeEnabled
+        snoozeMinutes = alarm.snoozeMinutes
         repeatDays = alarm.repeatDays ?: emptySet()
         volume = alarm.volume
         shuffleMode = alarm.shuffleMode
@@ -119,6 +121,7 @@ fun AlarmEditScreen(navController: NavController, alarmId: Long?) {
                         viewModel.setVibrate(vibrate)
                         viewModel.setVibrateDelayMinutes(vibrateDelayMinutes)
                         viewModel.setSnoozeEnabled(snoozeEnabled)
+                        viewModel.setSnoozeMinutes(snoozeMinutes)
                         viewModel.setLabel(if (label.isBlank()) null else label)
                         viewModel.setVolume(volume)
                         viewModel.setShuffleMode(shuffleMode)
@@ -153,7 +156,8 @@ fun AlarmEditScreen(navController: NavController, alarmId: Long?) {
                 { selectedPlaylistId = it }, { shuffleMode = it })
             VibrateCard(vibrate, vibrateDelayMinutes,
                 { vibrate = it }, { vibrateDelayMinutes = it })
-            SettingsCard(snoozeEnabled) { snoozeEnabled = it }
+            SettingsCard(snoozeEnabled, snoozeMinutes,
+                { snoozeEnabled = it }, { snoozeMinutes = it })
             VolumeCard(volume, fadeInEnabled, fadeInDuration,
                 { volume = it }, { fadeInEnabled = it }, { fadeInDuration = it })
             Spacer(modifier = Modifier.height(16.dp))
@@ -327,8 +331,8 @@ private fun VibrateCard(
             Slider(
                 value = vibrateDelayMinutes.toFloat(),
                 onValueChange = { onDelayChange(it.toInt()) },
-                valueRange = 0f..10f,
-                steps = 9,
+                valueRange = 0f..30f,
+                steps = 29,
                 modifier = Modifier.fillMaxWidth(),
                 colors = SliderDefaults.colors(
                     thumbColor = MaterialTheme.colorScheme.primary,
@@ -340,16 +344,72 @@ private fun VibrateCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(stringResource(R.string.vibrate_delay_now), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(stringResource(R.string.vibrate_delay_minutes, 10), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.vibrate_delay_minutes, 30), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
 }
 
 @Composable
-private fun SettingsCard(snoozeEnabled: Boolean, onSnoozeChange: (Boolean) -> Unit) {
+private fun SettingsCard(
+    snoozeEnabled: Boolean,
+    snoozeMinutes: Int,
+    onSnoozeChange: (Boolean) -> Unit,
+    onSnoozeMinutesChange: (Int) -> Unit
+) {
     FlatCard(title = stringResource(R.string.settings_title)) {
-        SettingRow(stringResource(R.string.alarm_snooze), snoozeEnabled, onSnoozeChange)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(stringResource(R.string.alarm_snooze), style = MaterialTheme.typography.bodyLarge)
+            Checkbox(
+                checked = snoozeEnabled,
+                onCheckedChange = onSnoozeChange,
+                colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
+            )
+        }
+
+        if (snoozeEnabled) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(stringResource(R.string.snooze_time_or_vibrate_delay), style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    stringResource(R.string.duration_minutes, snoozeMinutes),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            Text(
+                stringResource(R.string.snooze_time_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Slider(
+                value = snoozeMinutes.toFloat(),
+                onValueChange = { onSnoozeMinutesChange(it.toInt()) },
+                valueRange = 1f..30f,
+                steps = 28,
+                modifier = Modifier.fillMaxWidth(),
+                colors = SliderDefaults.colors(
+                    thumbColor = MaterialTheme.colorScheme.primary,
+                    activeTrackColor = MaterialTheme.colorScheme.primary
+                )
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(stringResource(R.string.duration_minutes, 1), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.duration_minutes, 30), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
     }
 }
 

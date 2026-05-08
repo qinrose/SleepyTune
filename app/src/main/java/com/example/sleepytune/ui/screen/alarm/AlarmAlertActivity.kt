@@ -44,6 +44,8 @@ import com.example.sleepytune.R
 import com.example.sleepytune.service.AlarmPlaybackService
 import com.example.sleepytune.ui.theme.AlarmColorConfig
 import com.example.sleepytune.ui.theme.SleepyTuneTheme
+import java.text.SimpleDateFormat
+import java.util.*
 import kotlin.math.abs
 
 class AlarmAlertActivity : ComponentActivity() {
@@ -77,6 +79,11 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String) {
     var songTitle by remember { mutableStateOf("") }
     var songArtist by remember { mutableStateOf("") }
     var isVibrating by remember { mutableStateOf(true) }
+    
+    // 时间相关状态
+    var currentTime by remember { mutableStateOf("") }
+    var currentDate by remember { mutableStateOf("") }
+    var currentWeekday by remember { mutableStateOf("") }
 
     DisposableEffect(Unit) {
         val receiver = object : android.content.BroadcastReceiver() {
@@ -90,6 +97,18 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String) {
         val filter = android.content.IntentFilter(AlarmPlaybackService.ACTION_UPDATE_PLAYBACK_INFO)
         context.registerReceiver(receiver, filter)
         onDispose { context.unregisterReceiver(receiver) }
+    }
+    
+    // 更新时间
+    LaunchedEffect(Unit) {
+        while (true) {
+            val now = Calendar.getInstance()
+            currentTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(now.time)
+            currentDate = SimpleDateFormat("MM月dd日", Locale.getDefault()).format(now.time)
+            val weekdays = arrayOf("周日", "周一", "周二", "周三", "周四", "周五", "周六")
+            currentWeekday = weekdays[now.get(Calendar.DAY_OF_WEEK) - 1]
+            kotlinx.coroutines.delay(1000)
+        }
     }
 
     val btnColors = ButtonDefaults.buttonColors(containerColor = AlarmColorConfig.ButtonPrimary)
@@ -107,16 +126,56 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String) {
                 )
             )
             .noiseOverlay()
-            .padding(start = 16.dp, end = 16.dp, top = 32.dp, bottom = 32.dp),
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(horizontal = 24.dp, vertical = 32.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier
-                .fillMaxWidth(0.88f)
-                .verticalScroll(rememberScrollState())
+            verticalArrangement = Arrangement.spacedBy(24.dp),
+            modifier = Modifier.fillMaxWidth()
         ) {
+            // 时间显示区域
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(top = 32.dp)
+            ) {
+                Text(
+                    text = currentTime,
+                    fontSize = 72.sp,
+                    fontWeight = FontWeight.Light,
+                    color = AlarmColorConfig.TextPrimary,
+                    letterSpacing = 4.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = currentDate,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = AlarmColorConfig.TextSecondary
+                    )
+                    Text(
+                        text = "·",
+                        fontSize = 18.sp,
+                        color = AlarmColorConfig.TextSecondary
+                    )
+                    Text(
+                        text = currentWeekday,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = AlarmColorConfig.TextSecondary
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(48.dp))
+            
+            // 歌曲信息区域
             if (songTitle.isNotEmpty()) {
                 SongInfoRow(
                     title = songTitle,
@@ -127,49 +186,15 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String) {
                         })
                     }
                 )
-                Spacer(modifier = Modifier.height(48.dp))
             }
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            Spacer(modifier = Modifier.weight(1f, fill = false))
+
+            // 按钮区域
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Button(
-                    onClick = {
-                        context.startService(Intent(context, AlarmPlaybackService::class.java).apply {
-                            action = AlarmPlaybackService.ACTION_SNOOZE_ALARM
-                        })
-                        (context as? AlarmAlertActivity)?.finish()
-                    },
-                    shape = btnShape,
-                    colors = btnColors,
-                    modifier = Modifier.weight(1f).height(56.dp)
-                ) {
-                    Icon(Icons.Default.Snooze, null, modifier = Modifier.size(20.dp), tint = AlarmColorConfig.ButtonText)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(stringResource(R.string.alarm_snooze), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = AlarmColorConfig.ButtonText)
-                }
-
-                Button(
-                    onClick = {
-                        context.startService(Intent(context, AlarmPlaybackService::class.java).apply {
-                            action = AlarmPlaybackService.ACTION_STOP_ALARM
-                        })
-                        (context as? AlarmAlertActivity)?.finish()
-                    },
-                    shape = btnShape,
-                    colors = ButtonDefaults.buttonColors(containerColor = AlarmColorConfig.ButtonDanger),
-                    modifier = Modifier.weight(1f).height(56.dp)
-                ) {
-                    Icon(Icons.Default.Stop, null, modifier = Modifier.size(20.dp), tint = AlarmColorConfig.ButtonText)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(stringResource(R.string.alarm_stop_button), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AlarmColorConfig.ButtonText)
-                }
-            }
-
-            if (isVibrating) {
-                Spacer(modifier = Modifier.height(12.dp))
-
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -177,33 +202,72 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String) {
                     Button(
                         onClick = {
                             context.startService(Intent(context, AlarmPlaybackService::class.java).apply {
-                                action = AlarmPlaybackService.ACTION_PAUSE_VIBRATE
+                                action = AlarmPlaybackService.ACTION_SNOOZE_ALARM
                             })
-                            isVibrating = false
+                            (context as? AlarmAlertActivity)?.finish()
                         },
                         shape = btnShape,
-                        colors = ButtonDefaults.buttonColors(containerColor = AlarmColorConfig.ButtonSecondary),
+                        colors = btnColors,
                         modifier = Modifier.weight(1f).height(56.dp)
                     ) {
-                        Icon(Icons.Default.Pause, null, modifier = Modifier.size(20.dp), tint = AlarmColorConfig.ButtonText)
+                        Icon(Icons.Default.Snooze, null, modifier = Modifier.size(20.dp), tint = AlarmColorConfig.ButtonText)
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(stringResource(R.string.alarm_pause_vibrate), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = AlarmColorConfig.ButtonText)
+                        Text(stringResource(R.string.alarm_snooze), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = AlarmColorConfig.ButtonText)
                     }
 
                     Button(
                         onClick = {
                             context.startService(Intent(context, AlarmPlaybackService::class.java).apply {
-                                action = AlarmPlaybackService.ACTION_STOP_VIBRATE
+                                action = AlarmPlaybackService.ACTION_STOP_ALARM
                             })
-                            isVibrating = false
+                            (context as? AlarmAlertActivity)?.finish()
                         },
                         shape = btnShape,
-                        colors = ButtonDefaults.buttonColors(containerColor = AlarmColorConfig.ButtonSecondary),
+                        colors = ButtonDefaults.buttonColors(containerColor = AlarmColorConfig.ButtonDanger),
                         modifier = Modifier.weight(1f).height(56.dp)
                     ) {
-                        Icon(Icons.Default.Vibration, null, modifier = Modifier.size(20.dp), tint = AlarmColorConfig.ButtonText)
+                        Icon(Icons.Default.Stop, null, modifier = Modifier.size(20.dp), tint = AlarmColorConfig.ButtonText)
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(stringResource(R.string.alarm_stop_vibrate), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = AlarmColorConfig.ButtonText)
+                        Text(stringResource(R.string.alarm_stop_button), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AlarmColorConfig.ButtonText)
+                    }
+                }
+
+                if (isVibrating) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Button(
+                            onClick = {
+                                context.startService(Intent(context, AlarmPlaybackService::class.java).apply {
+                                    action = AlarmPlaybackService.ACTION_PAUSE_VIBRATE
+                                })
+                                isVibrating = false
+                            },
+                            shape = btnShape,
+                            colors = ButtonDefaults.buttonColors(containerColor = AlarmColorConfig.ButtonSecondary),
+                            modifier = Modifier.weight(1f).height(56.dp)
+                        ) {
+                            Icon(Icons.Default.Pause, null, modifier = Modifier.size(20.dp), tint = AlarmColorConfig.ButtonText)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(stringResource(R.string.alarm_pause_vibrate), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = AlarmColorConfig.ButtonText)
+                        }
+
+                        Button(
+                            onClick = {
+                                context.startService(Intent(context, AlarmPlaybackService::class.java).apply {
+                                    action = AlarmPlaybackService.ACTION_STOP_VIBRATE
+                                })
+                                isVibrating = false
+                            },
+                            shape = btnShape,
+                            colors = ButtonDefaults.buttonColors(containerColor = AlarmColorConfig.ButtonSecondary),
+                            modifier = Modifier.weight(1f).height(56.dp)
+                        ) {
+                            Icon(Icons.Default.Vibration, null, modifier = Modifier.size(20.dp), tint = AlarmColorConfig.ButtonText)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(stringResource(R.string.alarm_stop_vibrate), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = AlarmColorConfig.ButtonText)
+                        }
                     }
                 }
             }

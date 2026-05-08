@@ -34,7 +34,6 @@ class AlarmPlaybackService : android.app.Service() {
         private const val TAG = "AlarmPlaybackService"
         private const val NOTIFICATION_ID = 1001
         private const val CHANNEL_ID = "alarm_playback_v2"
-        private const val SNOOZE_DELAY_MS = 5 * 60 * 1000L
         private const val WAKE_LOCK_TIMEOUT_MS = 10 * 60 * 1000L
 
         private const val LOCAL_MUSIC_VOLUME_FACTOR = 0.8f
@@ -91,6 +90,7 @@ class AlarmPlaybackService : android.app.Service() {
     private var shuffleMode: Boolean = false
     private var fadeInEnabled: Boolean = true
     private var fadeInDuration: Int = 30
+    private var snoozeMinutes: Int = 5
     private var isVibrating: Boolean = false
     private var vibrationPaused: Boolean = false
 
@@ -179,8 +179,9 @@ class AlarmPlaybackService : android.app.Service() {
             shuffleMode = data.getBooleanExtra("shuffle_mode", false)
             fadeInEnabled = data.getBooleanExtra("fade_in_enabled", true)
             fadeInDuration = data.getIntExtra("fade_in_duration", 30)
+            snoozeMinutes = data.getIntExtra("snooze_minutes", 5)
 
-            Log.i(TAG, "闹钟参数: id=$alarmId, playlist=$playlistId, vibrate=$shouldVibrate, delay=$vibrateDelayMinutes, vol=$alarmVolume, shuffle=$shuffleMode, fadeIn=$fadeInEnabled/${fadeInDuration}s")
+            Log.i(TAG, "闹钟参数: id=$alarmId, playlist=$playlistId, vibrate=$shouldVibrate, delay=$vibrateDelayMinutes, vol=$alarmVolume, shuffle=$shuffleMode, fadeIn=$fadeInEnabled/${fadeInDuration}s, snooze=$snoozeMinutes")
         }
 
         startForeground(NOTIFICATION_ID, buildNotification())
@@ -440,12 +441,13 @@ class AlarmPlaybackService : android.app.Service() {
     }
 
     fun pauseVibrationUntilSnooze() {
-        Log.i(TAG, "暂停震动，${SNOOZE_DELAY_MS / 1000}秒后恢复震动")
+        val snoozeDelayMs = snoozeMinutes * 60 * 1000L
+        Log.i(TAG, "暂停震动，${snoozeMinutes}分钟后恢复震动")
         stopVibration()
         vibrationPaused = true
         snoozeVibrateJob?.cancel()
         snoozeVibrateJob = CoroutineScope(Dispatchers.Main).launch {
-            delay(SNOOZE_DELAY_MS)
+            delay(snoozeDelayMs)
             if (isPlaying && vibrationPaused) {
                 vibrationPaused = false
                 startVibration()
@@ -457,7 +459,8 @@ class AlarmPlaybackService : android.app.Service() {
     }
 
     private fun snooze() {
-        Log.i(TAG, "贪睡模式，${SNOOZE_DELAY_MS / 1000}秒后重新响铃")
+        val snoozeDelayMs = snoozeMinutes * 60 * 1000L
+        Log.i(TAG, "贪睡模式，${snoozeMinutes}分钟后重新响铃")
 
         snoozeVibrateJob?.cancel()
         stopAlarmSound()
@@ -467,7 +470,7 @@ class AlarmPlaybackService : android.app.Service() {
         updateNotification()
 
         snoozeJob = CoroutineScope(Dispatchers.Main).launch {
-            delay(SNOOZE_DELAY_MS)
+            delay(snoozeDelayMs)
             if (isPlaying.not()) {
                 // 贪睡后重置震动暂停标志
                 vibrationPaused = false
