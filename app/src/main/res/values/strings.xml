@@ -133,6 +133,9 @@
 
     <!-- Volume Settings -->
     <string name="volume_alarm">Alarm Volume</string>
+    <string name="volume_custom">Custom Volume</string>
+    <string name="volume_custom_desc">Manually set alarm volume</string>
+    <string name="volume_system_desc">Follow system alarm volume</string>
     <string name="volume_fade_in">Fade In</string>
     <string name="volume_fade_in_duration">Fade In Duration</string>
     <string name="volume_test">Test</string>
@@ -148,6 +151,12 @@
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
     <string name="theme_system">System</string>
+
+    <!-- Time Format -->
+    <string name="time_format_12h">12-Hour</string>
+    <string name="time_format_24h">24-Hour</string>
+    <string name="time_format_12h_desc">AM/PM format</string>
+    <string name="time_format_24h_desc">00:00 - 23:59</string>
 
     <!-- About -->
     <string name="about_title">About SleepyTune</string>

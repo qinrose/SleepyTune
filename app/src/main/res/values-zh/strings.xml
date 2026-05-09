@@ -133,6 +133,9 @@
 
     <!-- Volume Settings -->
     <string name="volume_alarm">闹钟音量</string>
+    <string name="volume_custom">自定义音量</string>
+    <string name="volume_custom_desc">手动设置闹钟音量</string>
+    <string name="volume_system_desc">跟随系统闹钟音量</string>
     <string name="volume_fade_in">音量渐强</string>
     <string name="volume_fade_in_duration">渐强时长</string>
     <string name="volume_test">测试</string>
@@ -148,6 +151,12 @@
     <string name="theme_light">浅色模式</string>
     <string name="theme_dark">深色模式</string>
     <string name="theme_system">跟随系统</string>
+
+    <!-- Time Format -->
+    <string name="time_format_12h">12小时制</string>
+    <string name="time_format_24h">24小时制</string>
+    <string name="time_format_12h_desc">上午/下午格式</string>
+    <string name="time_format_24h_desc">00:00 - 23:59</string>
 
     <!-- About -->
     <string name="about_title">关于 SleepyTune</string>

@@ -14,10 +14,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.util.Locale
 import javax.inject.Inject
 
-enum class AppLanguage(val code: String, val nativeName: String, val englishName: String) {
-    SYSTEM("system", "跟随系统", "Follow System"),
-    ENGLISH("en", "中文", "English"),
-    CHINESE("zh", "中文", "Chinese");
+enum class AppLanguage(val code: String, val nativeName: String, val englishName: String, val chineseName: String) {
+    SYSTEM("system", "Follow System", "Follow System", "跟随系统"),
+    ENGLISH("en", "English", "English", "英语"),
+    CHINESE("zh", "中文", "Chinese", "中文");
 
     companion object {
         fun fromCode(code: String): AppLanguage =
@@ -59,7 +59,7 @@ class LanguageViewModel @Inject constructor(
     fun getLanguageDisplayName(language: AppLanguage): String {
         val currentLocale = getCurrentLocale()
         return if (currentLocale.language.startsWith("zh")) {
-            language.nativeName
+            language.chineseName
         } else {
             language.englishName
         }

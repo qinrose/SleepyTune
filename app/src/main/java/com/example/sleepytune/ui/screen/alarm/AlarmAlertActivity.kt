@@ -1,8 +1,11 @@
 package com.example.sleepytune.ui.screen.alarm
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.WindowManager
+import androidx.core.view.WindowCompat
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -12,6 +15,8 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -57,6 +62,23 @@ class AlarmAlertActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        
+        // 显式设置导航栏和状态栏完全透明
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.insetsController?.apply {
+                setSystemBarsAppearance(0, android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS)
+                setSystemBarsAppearance(0, android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS)
+            }
+        }
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            window.navigationBarColor = android.graphics.Color.TRANSPARENT
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            window.statusBarColor = android.graphics.Color.TRANSPARENT
+        }
+        
         Log.i(TAG, "闹钟提醒界面启动")
 
         val alarmId = intent.getLongExtra("alarm_id", -1L)
@@ -76,14 +98,25 @@ class AlarmAlertActivity : ComponentActivity() {
 fun AlarmAlertScreen(alarmId: Long, alarmLabel: String) {
     val context = LocalContext.current
 
+    // 立即从跨进程状态读取初始歌曲信息
     var songTitle by remember { mutableStateOf("") }
     var songArtist by remember { mutableStateOf("") }
-    var isVibrating by remember { mutableStateOf(true) }
+    var isVibrating by remember { mutableStateOf(false) }
+    var shouldVibrate by remember { mutableStateOf(true) }
     
     // 时间相关状态
     var currentTime by remember { mutableStateOf("") }
     var currentDate by remember { mutableStateOf("") }
     var currentWeekday by remember { mutableStateOf("") }
+
+    // 启动时立即读取跨进程的歌曲信息和震动状态
+    LaunchedEffect(Unit) {
+        val prefs = context.getSharedPreferences("alarm_state", android.content.Context.MODE_MULTI_PROCESS)
+        songTitle = prefs.getString("song_title", "") ?: ""
+        songArtist = prefs.getString("song_artist", "") ?: ""
+        shouldVibrate = prefs.getBoolean("should_vibrate", true)
+        isVibrating = prefs.getBoolean("is_vibrating", false)
+    }
 
     DisposableEffect(Unit) {
         val receiver = object : android.content.BroadcastReceiver() {
@@ -114,68 +147,72 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String) {
     val btnColors = ButtonDefaults.buttonColors(containerColor = AlarmColorConfig.ButtonPrimary)
     val btnShape = RoundedCornerShape(16.dp)
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        AlarmColorConfig.BackgroundTop,
-                        AlarmColorConfig.BackgroundBottom
+    // 使用 LayeredBox：底层背景延伸到状态栏，内容避开导航栏
+    Box(modifier = Modifier.fillMaxSize()) {
+        // 底层背景 - 延伸到整个屏幕（包括状态栏）
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            AlarmColorConfig.BackgroundTop,
+                            AlarmColorConfig.BackgroundBottom
+                        )
                     )
                 )
-            )
-            .noiseOverlay()
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .padding(horizontal = 24.dp, vertical = 32.dp),
-        contentAlignment = Alignment.Center
-    ) {
+                .noiseOverlay()
+        )
+        
+        // 上层内容 - 只避开底部导航栏
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(24.dp),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 24.dp)
+                .statusBarsPadding()
         ) {
-            // 时间显示区域
+            // 时间显示区域 - 顶部
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(top = 32.dp)
+                modifier = Modifier.padding(top = 48.dp)
             ) {
                 Text(
                     text = currentTime,
-                    fontSize = 72.sp,
+                    fontSize = 64.sp,
                     fontWeight = FontWeight.Light,
                     color = AlarmColorConfig.TextPrimary,
                     letterSpacing = 4.sp
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = currentDate,
-                        fontSize = 18.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Normal,
                         color = AlarmColorConfig.TextSecondary
                     )
                     Text(
                         text = "·",
-                        fontSize = 18.sp,
+                        fontSize = 16.sp,
                         color = AlarmColorConfig.TextSecondary
                     )
                     Text(
                         text = currentWeekday,
-                        fontSize = 18.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Normal,
                         color = AlarmColorConfig.TextSecondary
                     )
                 }
             }
             
-            Spacer(modifier = Modifier.height(48.dp))
+            // 歌曲信息区域 - 居中
+            Spacer(modifier = Modifier.weight(1f))
             
-            // 歌曲信息区域
             if (songTitle.isNotEmpty()) {
                 SongInfoRow(
                     title = songTitle,
@@ -187,8 +224,8 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String) {
                     }
                 )
             }
-
-            Spacer(modifier = Modifier.weight(1f, fill = false))
+            
+            Spacer(modifier = Modifier.weight(1f))
 
             // 按钮区域
             Column(
@@ -232,7 +269,9 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String) {
                     }
                 }
 
-                if (isVibrating) {
+                // 只有在启用了震动且正在震动时才显示震动按钮
+                if (shouldVibrate && isVibrating) {
+                    Spacer(modifier = Modifier.height(12.dp))
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -278,7 +317,7 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String) {
 @Composable
 private fun SongInfoRow(title: String, artist: String, onNextSong: () -> Unit) {
     var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
-    val containerWidth = with(LocalDensity.current) { 280.dp.toPx() }
+    val containerWidth = with(LocalDensity.current) { 260.dp.toPx() }
     val textWidth = layoutResult?.size?.width?.toFloat() ?: 0f
     val isOverflow = textWidth > containerWidth
 
@@ -287,22 +326,27 @@ private fun SongInfoRow(title: String, artist: String, onNextSong: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Box(modifier = Modifier.fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(28.dp),
+                contentAlignment = Alignment.CenterStart
+            ) {
                 if (isOverflow) {
                     val transition = rememberInfiniteTransition(label = "marquee")
                     val offset by transition.animateFloat(
                         initialValue = 0f,
                         targetValue = -abs(textWidth - containerWidth),
                         animationSpec = infiniteRepeatable(
-                            animation = tween(durationMillis = title.length * 150, delayMillis = 1000, easing = LinearEasing),
+                            animation = tween(durationMillis = 4000, delayMillis = 800, easing = LinearEasing),
                             repeatMode = RepeatMode.Reverse
                         ),
                         label = "offset"
                     )
                     Text(
                         text = title,
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Normal,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Medium,
                         color = AlarmColorConfig.TextPrimary,
                         maxLines = 1,
                         softWrap = false,
@@ -312,8 +356,8 @@ private fun SongInfoRow(title: String, artist: String, onNextSong: () -> Unit) {
                 } else {
                     Text(
                         text = title,
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Normal,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Medium,
                         color = AlarmColorConfig.TextPrimary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -324,24 +368,24 @@ private fun SongInfoRow(title: String, artist: String, onNextSong: () -> Unit) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = artist,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Light,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Normal,
                 color = AlarmColorConfig.TextSecondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
         }
 
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(12.dp))
 
         FloatingActionButton(
             onClick = onNextSong,
             shape = CircleShape,
             containerColor = AlarmColorConfig.ButtonPrimary,
             contentColor = AlarmColorConfig.ButtonText,
-            modifier = Modifier.size(56.dp)
+            modifier = Modifier.size(48.dp)
         ) {
-            Icon(Icons.Default.SkipNext, contentDescription = "下一首", modifier = Modifier.size(28.dp))
+            Icon(Icons.Default.SkipNext, contentDescription = "下一首", modifier = Modifier.size(24.dp))
         }
     }
 }

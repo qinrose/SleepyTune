@@ -156,6 +156,21 @@ fun PermissionGuideScreen(
                 }
             )
             
+            // 通知设置入口
+            PermissionItem(
+                icon = Icons.Default.Settings,
+                title = "通知设置",
+                description = "管理通知渠道、声音和振动方式",
+                isGranted = notificationGranted,
+                isSystemSetting = true,
+                onClick = {
+                    val intent = android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                        putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+                    }
+                    context.startActivity(intent)
+                }
+            )
+            
             PermissionItem(
                 icon = Icons.Default.Alarm,
                 title = "精确闹钟",

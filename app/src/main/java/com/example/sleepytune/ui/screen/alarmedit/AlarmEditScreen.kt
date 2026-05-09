@@ -179,18 +179,26 @@ private fun TimePickerCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = if (is24Hour) "24小时制" else "12小时制",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            IconButton(onClick = onToggleTimeFormat) {
-                Icon(
-                    Icons.Default.Schedule,
-                    contentDescription = "切换时间制",
-                    tint = MaterialTheme.colorScheme.primary
+            Column {
+                Text(
+                    text = if (is24Hour) stringResource(R.string.time_format_24h) else stringResource(R.string.time_format_12h),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = if (is24Hour) stringResource(R.string.time_format_24h_desc) else stringResource(R.string.time_format_12h_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            Switch(
+                checked = is24Hour,
+                onCheckedChange = { onToggleTimeFormat() },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.primary,
+                    checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                )
+            )
         }
         Spacer(modifier = Modifier.height(8.dp))
         TimePickerWheel(
@@ -431,35 +439,95 @@ private fun VolumeCard(
     volume: Float, fadeInEnabled: Boolean, fadeInDuration: Int,
     onVolumeChange: (Float) -> Unit, onFadeInChange: (Boolean) -> Unit, onFadeInDurationChange: (Int) -> Unit
 ) {
+    var useCustomVolume by remember { mutableStateOf(volume < 0f) }
+    
     FlatCard(title = stringResource(R.string.settings_volume)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(stringResource(R.string.volume_alarm), style = MaterialTheme.typography.bodyLarge)
-            Text("${(volume * 100).toInt()}%", style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.primary)
-        }
-        Slider(value = volume, onValueChange = onVolumeChange, valueRange = 0f..1f,
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            colors = SliderDefaults.colors(thumbColor = MaterialTheme.colorScheme.primary,
-                activeTrackColor = MaterialTheme.colorScheme.primary))
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.volume_fade_in), style = MaterialTheme.typography.bodyLarge)
-            Switch(checked = fadeInEnabled, onCheckedChange = onFadeInChange,
-                colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.primary,
-                    checkedTrackColor = MaterialTheme.colorScheme.primaryContainer))
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.volume_custom), style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    if (useCustomVolume) stringResource(R.string.volume_custom_desc) else stringResource(R.string.volume_system_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Switch(
+                checked = useCustomVolume,
+                onCheckedChange = { 
+                    useCustomVolume = it
+                    if (!it) onVolumeChange(-1f) else onVolumeChange(0.8f)
+                },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.primary,
+                    checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                )
+            )
         }
+        
+        if (useCustomVolume) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(stringResource(R.string.volume_alarm), style = MaterialTheme.typography.bodyMedium)
+                Text("${(volume.coerceAtLeast(0f) * 100).toInt()}%", style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary)
+            }
+            Slider(
+                value = volume.coerceAtLeast(0f),
+                onValueChange = onVolumeChange,
+                valueRange = 0f..1f,
+                modifier = Modifier.fillMaxWidth(),
+                colors = SliderDefaults.colors(
+                    thumbColor = MaterialTheme.colorScheme.primary,
+                    activeTrackColor = MaterialTheme.colorScheme.primary
+                )
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(stringResource(R.string.volume_fade_in), style = MaterialTheme.typography.bodyLarge)
+            Switch(
+                checked = fadeInEnabled,
+                onCheckedChange = onFadeInChange,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.primary,
+                    checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                )
+            )
+        }
+        
         if (fadeInEnabled) {
             Spacer(modifier = Modifier.height(8.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
                 Text(stringResource(R.string.volume_fade_in_duration), style = MaterialTheme.typography.bodyMedium)
                 Text("${fadeInDuration}${stringResource(R.string.duration_seconds_short)}", style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary)
             }
-            Slider(value = fadeInDuration.toFloat(), onValueChange = { onFadeInDurationChange(it.toInt()) },
-                valueRange = 5f..120f, steps = 23, modifier = Modifier.fillMaxWidth(),
-                colors = SliderDefaults.colors(thumbColor = MaterialTheme.colorScheme.primary,
-                    activeTrackColor = MaterialTheme.colorScheme.primary))
+            Slider(
+                value = fadeInDuration.toFloat(),
+                onValueChange = { onFadeInDurationChange(it.toInt()) },
+                valueRange = 5f..120f,
+                steps = 23,
+                modifier = Modifier.fillMaxWidth(),
+                colors = SliderDefaults.colors(
+                    thumbColor = MaterialTheme.colorScheme.primary,
+                    activeTrackColor = MaterialTheme.colorScheme.primary
+                )
+            )
         }
     }
 }

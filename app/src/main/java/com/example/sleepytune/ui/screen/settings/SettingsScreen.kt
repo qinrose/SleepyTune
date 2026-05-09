@@ -77,9 +77,7 @@ fun SettingsScreen(navController: NavController) {
     val currentLanguage by languageViewModel.currentLanguage.collectAsState()
 
     var showThemeDialog by remember { mutableStateOf(false) }
-    var showVolumeDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
-    var showSleepDialog by remember { mutableStateOf(false) }
 
     // 获取当前语言显示名称
     val languageDisplayName = remember(currentLanguage) {
@@ -123,35 +121,8 @@ fun SettingsScreen(navController: NavController) {
                 }
             ) { showThemeDialog = true }
 
-            SettingItem(Icons.Filled.Notifications, stringResource(R.string.settings_notifications), stringResource(R.string.settings_notifications_desc)) {
-                val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                    putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                }
-                context.startActivity(intent)
-            }
-
             SettingItem(Icons.Filled.Security, stringResource(R.string.settings_permissions), stringResource(R.string.settings_permissions_desc)) {
-                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                    data = Uri.fromParts("package", context.packageName, null)
-                }
-                context.startActivity(intent)
-            }
-
-            SettingItem(Icons.AutoMirrored.Filled.VolumeUp, stringResource(R.string.settings_volume), stringResource(R.string.settings_volume_desc)) {
-                showVolumeDialog = true
-            }
-
-            SettingItem(Icons.Filled.NightlightRound, stringResource(R.string.settings_sleep), stringResource(R.string.settings_sleep_desc)) {
-                showSleepDialog = true
-            }
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                SettingItem(Icons.Filled.Settings, stringResource(R.string.battery_optimization_title), stringResource(R.string.battery_optimization_desc)) {
-                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                        data = Uri.parse("package:${context.packageName}")
-                    }
-                    context.startActivity(intent)
-                }
+                navController.navigate("permissionGuide")
             }
 
             SettingItem(Icons.Filled.Info, stringResource(R.string.settings_about), stringResource(R.string.settings_about_desc)) {
@@ -211,21 +182,13 @@ fun SettingsScreen(navController: NavController) {
         }
     }
 
-    if (showVolumeDialog) {
-        VolumeSettingsDialog(onDismiss = { showVolumeDialog = false })
-    }
-
-    if (showSleepDialog) {
-        SleepSettingsDialog(onDismiss = { showSleepDialog = false })
-    }
-
     if (showAboutDialog) {
         AlertDialog(
             onDismissRequest = { showAboutDialog = false },
             title = { Text(stringResource(R.string.about_title), style = MaterialTheme.typography.titleLarge) },
             text = {
                 Column {
-                    Text("SleepyTune v1.0", style = MaterialTheme.typography.titleMedium)
+                    Text("SleepyTune v1.0.0", style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(stringResource(R.string.about_desc), style = MaterialTheme.typography.bodyMedium)
                     Spacer(modifier = Modifier.height(16.dp))
@@ -233,8 +196,6 @@ fun SettingsScreen(navController: NavController) {
                     Text("• ${stringResource(R.string.about_feature_alarm)}", style = MaterialTheme.typography.bodyMedium)
                     Text("• ${stringResource(R.string.about_feature_fade)}", style = MaterialTheme.typography.bodyMedium)
                     Text("• ${stringResource(R.string.about_feature_playlist)}", style = MaterialTheme.typography.bodyMedium)
-                    Text("• ${stringResource(R.string.about_feature_sleep)}", style = MaterialTheme.typography.bodyMedium)
-                    Text("• ${stringResource(R.string.about_feature_widget)}", style = MaterialTheme.typography.bodyMedium)
                     Spacer(modifier = Modifier.height(16.dp))
                     Text("© 2026 SleepyTune", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 }
@@ -244,129 +205,6 @@ fun SettingsScreen(navController: NavController) {
             containerColor = MaterialTheme.colorScheme.surface
         )
     }
-}
-
-@Composable
-fun VolumeSettingsDialog(onDismiss: () -> Unit) {
-    var alarmVolume by remember { mutableFloatStateOf(0.8f) }
-    var fadeInEnabled by remember { mutableStateOf(true) }
-    var fadeInDuration by remember { mutableFloatStateOf(30f) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.settings_volume), style = MaterialTheme.typography.titleLarge) },
-        text = {
-            Column {
-                Text("${stringResource(R.string.volume_alarm)}: ${(alarmVolume * 100).toInt()}%", style = MaterialTheme.typography.bodyMedium)
-                Slider(
-                    value = alarmVolume, onValueChange = { alarmVolume = it },
-                    valueRange = 0f..1f, modifier = Modifier.fillMaxWidth(),
-                    colors = SliderDefaults.colors(
-                        thumbColor = MaterialTheme.colorScheme.primary,
-                        activeTrackColor = MaterialTheme.colorScheme.primary
-                    )
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(stringResource(R.string.volume_fade_in), style = MaterialTheme.typography.bodyLarge)
-                    Switch(
-                        checked = fadeInEnabled, onCheckedChange = { fadeInEnabled = it },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = MaterialTheme.colorScheme.primary,
-                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
-                        )
-                    )
-                }
-
-                if (fadeInEnabled) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("${stringResource(R.string.volume_fade_in_duration)}: ${fadeInDuration.toInt()}${stringResource(R.string.duration_seconds_short)}", style = MaterialTheme.typography.bodyMedium)
-                    Slider(
-                        value = fadeInDuration, onValueChange = { fadeInDuration = it },
-                        valueRange = 10f..60f, modifier = Modifier.fillMaxWidth(),
-                        colors = SliderDefaults.colors(
-                            thumbColor = MaterialTheme.colorScheme.primary,
-                            activeTrackColor = MaterialTheme.colorScheme.primary
-                        )
-                    )
-                }
-            }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.confirm_save)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.confirm_cancel)) } },
-        shape = RoundedCornerShape(20.dp),
-        containerColor = MaterialTheme.colorScheme.surface
-    )
-}
-
-@Composable
-fun SleepSettingsDialog(onDismiss: () -> Unit) {
-    var sleepTimerEnabled by remember { mutableStateOf(false) }
-    var sleepDuration by remember { mutableFloatStateOf(30f) }
-    var fadeOutEnabled by remember { mutableStateOf(true) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.settings_sleep), style = MaterialTheme.typography.titleLarge) },
-        text = {
-            Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(stringResource(R.string.sleep_timer_enable), style = MaterialTheme.typography.bodyLarge)
-                    Switch(
-                        checked = sleepTimerEnabled, onCheckedChange = { sleepTimerEnabled = it },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = MaterialTheme.colorScheme.primary,
-                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
-                        )
-                    )
-                }
-
-                if (sleepTimerEnabled) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("${stringResource(R.string.sleep_duration)}: ${sleepDuration.toInt()}${stringResource(R.string.duration_minutes_short)}", style = MaterialTheme.typography.bodyMedium)
-                    Slider(
-                        value = sleepDuration, onValueChange = { sleepDuration = it },
-                        valueRange = 15f..120f, modifier = Modifier.fillMaxWidth(),
-                        colors = SliderDefaults.colors(
-                            thumbColor = MaterialTheme.colorScheme.primary,
-                            activeTrackColor = MaterialTheme.colorScheme.primary
-                        )
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(stringResource(R.string.sleep_fade_out), style = MaterialTheme.typography.bodyLarge)
-                        Switch(
-                            checked = fadeOutEnabled, onCheckedChange = { fadeOutEnabled = it },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
-                            )
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.confirm_save)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.confirm_cancel)) } },
-        shape = RoundedCornerShape(20.dp),
-        containerColor = MaterialTheme.colorScheme.surface
-    )
 }
 
 @Composable

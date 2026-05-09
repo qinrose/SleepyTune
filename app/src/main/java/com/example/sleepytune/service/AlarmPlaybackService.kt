@@ -192,9 +192,12 @@ class AlarmPlaybackService : android.app.Service() {
 
     private fun startAlarm() {
         isPlaying = true
-        alarmStateManager.setAlarmPlaying(true, alarmId, alarmLabel)
+        alarmStateManager.persistAlarmPlaying(applicationContext, true, alarmId, alarmLabel)
 
-        // 如果震动是暂停状态，不启动震动
+        // 持久化震动状态
+        val isCurrentlyVibrating = shouldVibrate && vibrateDelayMinutes == 0
+        alarmStateManager.persistVibrateState(applicationContext, shouldVibrate, isCurrentlyVibrating)
+
         if (vibrationPaused) {
             Log.i(TAG, "震动处于暂停状态，本次不启动震动")
         }
@@ -205,6 +208,7 @@ class AlarmPlaybackService : android.app.Service() {
                 delay(vibrateDelayMinutes * 60 * 1000L)
                 if (isPlaying && !vibrationPaused) {
                     startVibration()
+                    alarmStateManager.persistVibrateState(applicationContext, true, true)
                 }
             }
         } else if (shouldVibrate) {
@@ -275,8 +279,8 @@ class AlarmPlaybackService : android.app.Service() {
     }
 
     private fun broadcastPlaybackInfo(title: String, artist: String, index: Int, total: Int) {
-        // 更新状态管理器
         alarmStateManager.setSongInfo(title, artist)
+        alarmStateManager.persistSongInfo(applicationContext, title, artist)
         
         val intent = Intent(ACTION_UPDATE_PLAYBACK_INFO).apply {
             putExtra(EXTRA_SONG_TITLE, title)
@@ -466,7 +470,7 @@ class AlarmPlaybackService : android.app.Service() {
         stopAlarmSound()
         stopVibration()
         isPlaying = false
-        alarmStateManager.setAlarmPlaying(false)
+        alarmStateManager.persistAlarmPlaying(applicationContext, false)
         updateNotification()
 
         snoozeJob = CoroutineScope(Dispatchers.Main).launch {
@@ -500,7 +504,7 @@ class AlarmPlaybackService : android.app.Service() {
         isPlaying = false
         shouldVibrate = true
         vibrationPaused = false
-        alarmStateManager.clearState()
+        alarmStateManager.clearPersistedState(applicationContext)
 
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -619,6 +623,6 @@ class AlarmPlaybackService : android.app.Service() {
         vibrateDelayJob?.cancel()
         snoozeVibrateJob?.cancel()
         volumeManager.stopFadeIn()
-        alarmStateManager.clearState()
+        alarmStateManager.clearPersistedState(applicationContext)
     }
 }
