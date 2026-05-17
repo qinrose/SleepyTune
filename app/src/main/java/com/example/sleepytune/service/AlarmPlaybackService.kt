@@ -47,6 +47,7 @@ class AlarmPlaybackService : android.app.Service() {
         const val ACTION_NEXT_SONG = "com.example.sleepytune.ACTION_NEXT_SONG"
 
         const val ACTION_UPDATE_PLAYBACK_INFO = "com.example.sleepytune.UPDATE_PLAYBACK_INFO"
+        const val ACTION_SNOOZE_ENDED = "com.example.sleepytune.SNOOZE_ENDED"
         const val EXTRA_SONG_TITLE = "song_title"
         const val EXTRA_SONG_ARTIST = "song_artist"
         const val EXTRA_CURRENT_INDEX = "current_index"
@@ -86,11 +87,13 @@ class AlarmPlaybackService : android.app.Service() {
     private var shouldVibrate: Boolean = true
     private var vibrateDelayMinutes: Int = 0
     private var alarmVolume: Float = 1.0f
+    private var followSystemVolume: Boolean = false
     private var alarmLabel: String = "闹钟"
     private var shuffleMode: Boolean = false
     private var fadeInEnabled: Boolean = true
     private var fadeInDuration: Int = 30
     private var snoozeMinutes: Int = 5
+    private var snoozeEnabled: Boolean = true
     private var isVibrating: Boolean = false
     private var vibrationPaused: Boolean = false
 
@@ -140,6 +143,17 @@ class AlarmPlaybackService : android.app.Service() {
         }
     }
 
+    // 获取实际音量，支持跟随系统闹钟音量
+    private fun getActualVolume(): Float {
+        return if (followSystemVolume) {
+            val maxVolume = volumeManager.getSystemMaxAlarmVolume()
+            val currentVolume = volumeManager.getSystemAlarmVolume()
+            if (maxVolume > 0) currentVolume.toFloat() / maxVolume.toFloat() else 1.0f
+        } else {
+            alarmVolume.coerceIn(0f, 1f)
+        }
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.i(TAG, "onStartCommand")
 
@@ -175,13 +189,15 @@ class AlarmPlaybackService : android.app.Service() {
             shouldVibrate = data.getBooleanExtra("vibrate", true)
             vibrateDelayMinutes = data.getIntExtra("vibrate_delay_minutes", 0)
             alarmVolume = data.getFloatExtra("volume", 1.0f)
+            followSystemVolume = alarmVolume < 0
             alarmLabel = data.getStringExtra("label") ?: "闹钟"
             shuffleMode = data.getBooleanExtra("shuffle_mode", false)
             fadeInEnabled = data.getBooleanExtra("fade_in_enabled", true)
             fadeInDuration = data.getIntExtra("fade_in_duration", 30)
             snoozeMinutes = data.getIntExtra("snooze_minutes", 5)
+            snoozeEnabled = data.getBooleanExtra("snooze_enabled", true)
 
-            Log.i(TAG, "闹钟参数: id=$alarmId, playlist=$playlistId, vibrate=$shouldVibrate, delay=$vibrateDelayMinutes, vol=$alarmVolume, shuffle=$shuffleMode, fadeIn=$fadeInEnabled/${fadeInDuration}s, snooze=$snoozeMinutes")
+            Log.i(TAG, "闹钟参数: id=$alarmId, playlist=$playlistId, vibrate=$shouldVibrate, delay=$vibrateDelayMinutes, vol=$alarmVolume, shuffle=$shuffleMode, fadeIn=$fadeInEnabled/${fadeInDuration}s, snooze=$snoozeMinutes, snoozeEnabled=$snoozeEnabled")
         }
 
         startForeground(NOTIFICATION_ID, buildNotification())
@@ -197,6 +213,9 @@ class AlarmPlaybackService : android.app.Service() {
         // 持久化震动状态
         val isCurrentlyVibrating = shouldVibrate && vibrateDelayMinutes == 0
         alarmStateManager.persistVibrateState(applicationContext, shouldVibrate, isCurrentlyVibrating)
+
+        // 持久化贪睡启用状态
+        alarmStateManager.persistSnoozeEnabled(applicationContext, snoozeEnabled)
 
         if (vibrationPaused) {
             Log.i(TAG, "震动处于暂停状态，本次不启动震动")
@@ -308,7 +327,7 @@ class AlarmPlaybackService : android.app.Service() {
                 prepareAsync()
 
                 setOnPreparedListener { mp ->
-                    val targetVolume = alarmVolume.coerceIn(0f, 1f) * LOCAL_MUSIC_VOLUME_FACTOR
+                    val targetVolume = getActualVolume() * LOCAL_MUSIC_VOLUME_FACTOR
 
                     if (fadeInEnabled && isFirstSong) {
                         mp.setVolume(0.1f, 0.1f)
@@ -387,7 +406,7 @@ class AlarmPlaybackService : android.app.Service() {
                 setDataSource(applicationContext, uri)
                 prepare()
 
-                val targetVolume = alarmVolume.coerceIn(0f, 1f)
+                val targetVolume = getActualVolume()
 
                 if (volumeManager.isFadeInEnabled()) {
                     setVolume(0.1f, 0.1f)
@@ -479,13 +498,12 @@ class AlarmPlaybackService : android.app.Service() {
                 // 贪睡后重置震动暂停标志
                 vibrationPaused = false
                 
-                // 重新启动闹钟提醒界面
-                val alertIntent = Intent(applicationContext, AlarmAlertActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                // 发送贪睡结束广播，通知Activity重新显示
+                val snoozeEndIntent = Intent(ACTION_SNOOZE_ENDED).apply {
                     putExtra("alarm_id", alarmId)
                     putExtra("label", alarmLabel)
                 }
-                applicationContext.startActivity(alertIntent)
+                sendBroadcast(snoozeEndIntent)
                 
                 startAlarm()
             }
@@ -587,7 +605,7 @@ class AlarmPlaybackService : android.app.Service() {
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(alarmLabel)
             .setContentText(contentText)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_notification)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)

@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -18,6 +19,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -33,6 +35,7 @@ import com.example.sleepytune.ui.screen.settings.LanguageSettingsScreen
 import com.example.sleepytune.ui.screen.settings.PermissionGuideScreen
 import com.example.sleepytune.ui.screen.settings.SettingsScreen
 import com.example.sleepytune.ui.theme.SleepyTuneTheme
+import com.example.sleepytune.ui.viewmodel.ThemeViewModel
 import com.example.sleepytune.utils.PermissionUtils
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -41,6 +44,8 @@ import javax.inject.Inject
 class MainActivity : AppCompatActivity() {
 
     @Inject lateinit var alarmStateManager: AlarmStateManager
+    
+    private var lastAlarmAlertLaunchTime = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,9 +53,10 @@ class MainActivity : AppCompatActivity() {
 
         // 如果闹钟正在响，直接跳转到闹钟界面并结束当前Activity
         if (alarmStateManager.isAlarmPlayingCrossProcess(this)) {
+            val alarmId = alarmStateManager.getAlarmIdCrossProcess(this)
             val alarmLabel = alarmStateManager.getAlarmLabelCrossProcess(this)
             startActivity(Intent(this, AlarmAlertActivity::class.java).apply {
-                putExtra("alarm_id", -1L)
+                putExtra("alarm_id", alarmId)
                 putExtra("label", alarmLabel)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             })
@@ -61,23 +67,43 @@ class MainActivity : AppCompatActivity() {
         PermissionUtils.initPermissionLaunchers(this)
 
         setContent {
-            SleepyTuneTheme {
-                MainAppContent()
-            }
+            MainApp()
         }
     }
 
     override fun onResume() {
         super.onResume()
         // 如果闹钟正在响，直接跳转到闹钟界面
-        if (alarmStateManager.isAlarmPlayingCrossProcess(this)) {
+        // 添加防抖检查，避免短时间内重复启动
+        val currentTime = System.currentTimeMillis()
+        if (alarmStateManager.isAlarmPlayingCrossProcess(this) && 
+            currentTime - lastAlarmAlertLaunchTime > 1000) {
+            lastAlarmAlertLaunchTime = currentTime
+            val alarmId = alarmStateManager.getAlarmIdCrossProcess(this)
             val alarmLabel = alarmStateManager.getAlarmLabelCrossProcess(this)
             startActivity(Intent(this, AlarmAlertActivity::class.java).apply {
-                putExtra("alarm_id", -1L)
+                putExtra("alarm_id", alarmId)
                 putExtra("label", alarmLabel)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             })
         }
+    }
+}
+
+@Composable
+fun MainApp() {
+    val themeViewModel: ThemeViewModel = hiltViewModel()
+    val themeMode by themeViewModel.themeMode.collectAsState()
+    
+    // 根据主题模式确定是否使用深色主题
+    val darkTheme = when (themeMode) {
+        ThemeViewModel.ThemeMode.LIGHT -> false
+        ThemeViewModel.ThemeMode.DARK -> true
+        ThemeViewModel.ThemeMode.AUTO -> isSystemInDarkTheme()
+    }
+
+    SleepyTuneTheme(darkTheme = darkTheme) {
+        MainAppContent()
     }
 }
 
@@ -124,20 +150,30 @@ fun MainScreen() {
                         icon = {
                             Icon(
                                 imageVector = item.icon,
-                                contentDescription = item.getLabel()
+                                contentDescription = item.getLabel(),
+                                tint = if (currentRoute == item.route) 
+                                    MaterialTheme.colorScheme.onPrimaryContainer 
+                                else 
+                                    MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         },
                         label = {
                             Text(
                                 text = item.getLabel(),
                                 fontSize = 12.sp,
-                                fontWeight = if (currentRoute == item.route) FontWeight.SemiBold else FontWeight.Normal
+                                fontWeight = if (currentRoute == item.route) FontWeight.SemiBold else FontWeight.Normal,
+                                color = if (currentRoute == item.route) 
+                                    MaterialTheme.colorScheme.primary 
+                                else 
+                                    MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
                             selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
                         )
                     )
                 }
@@ -177,6 +213,12 @@ fun MainScreen() {
             composable("languageSettings") {
                 LanguageSettingsScreen(
                     onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable("permissionGuide") {
+                PermissionGuideScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onAllPermissionsGranted = { navController.popBackStack() }
                 )
             }
         }

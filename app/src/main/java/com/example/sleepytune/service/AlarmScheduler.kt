@@ -44,6 +44,7 @@ class AlarmScheduler @Inject constructor(
             putExtra(AlarmReceiver.EXTRA_FADE_IN_ENABLED, alarm.fadeInEnabled)
             putExtra(AlarmReceiver.EXTRA_FADE_IN_DURATION, alarm.fadeInDuration)
             putExtra(AlarmReceiver.EXTRA_SNOOZE_MINUTES, alarm.snoozeMinutes)
+            putExtra(AlarmReceiver.EXTRA_SNOOZE_ENABLED, alarm.snoozeEnabled)
         }
 
         val requestCode = alarm.id.toInt()
@@ -107,6 +108,7 @@ class AlarmScheduler @Inject constructor(
             putExtra("fade_in_enabled", alarm.fadeInEnabled)
             putExtra("fade_in_duration", alarm.fadeInDuration)
             putExtra("snooze_minutes", alarm.snoozeMinutes)
+            putExtra("snooze_enabled", alarm.snoozeEnabled)
             putExtra("is_backup", true)
         }
 

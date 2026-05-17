@@ -75,8 +75,6 @@
             android:exported="true"
             android:excludeFromRecents="true"
             android:launchMode="singleInstance"
-            android:showOnLockScreen="true"
-            android:turnScreenOn="true"
             android:taskAffinity="com.example.sleepytune.alarm"
             android:theme="@style/Theme.SleepyTune.Alarm" />
         
@@ -107,6 +105,7 @@
                 <action android:name="com.example.sleepytune.ACTION_STOP_VIBRATE" />
                 <action android:name="com.example.sleepytune.ACTION_PAUSE_VIBRATE" />
                 <action android:name="com.example.sleepytune.ACTION_STOP_ALARM" />
+                <action android:name="com.example.sleepytune.FINISH_ACTIVITY" />
             </intent-filter>
         </receiver>
         

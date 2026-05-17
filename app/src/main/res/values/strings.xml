@@ -231,6 +231,7 @@
     <string name="confirm_cancel">Cancel</string>
     <string name="confirm_ok">OK</string>
     <string name="confirm_save">Save</string>
+    <string name="confirm_preview">Preview</string>
     <string name="confirm">Confirm</string>
 
     <!-- Battery Optimization -->
@@ -312,4 +313,10 @@
     <string name="playback_order">Playback Order</string>
     <string name="playback_sequential">Sequential</string>
     <string name="playback_shuffle">Shuffle</string>
+
+    <!-- Lock Screen Settings -->
+    <string name="lock_screen_popup">Lock Screen Popup</string>
+    <string name="lock_screen_popup_desc">Show alarm alert on lock screen</string>
+    <string name="lock_screen_popup_permission">Lock Screen Permission</string>
+    <string name="lock_screen_popup_permission_desc">Required to show alarm on lock screen</string>
 </resources>

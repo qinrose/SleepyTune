@@ -60,6 +60,20 @@ class AlarmStateManager @Inject constructor() {
         }
     }
 
+    // 持久化贪睡启用状态
+    fun persistSnoozeEnabled(context: Context, snoozeEnabled: Boolean) {
+        context.getSharedPreferences("alarm_state", Context.MODE_MULTI_PROCESS).edit().apply {
+            putBoolean("snooze_enabled", snoozeEnabled)
+            apply()
+        }
+    }
+
+    // 获取贪睡启用状态
+    fun getSnoozeEnabledCrossProcess(context: Context): Boolean {
+        return context.getSharedPreferences("alarm_state", Context.MODE_MULTI_PROCESS)
+            .getBoolean("snooze_enabled", true)
+    }
+
     // 获取震动状态
     fun getVibrateStateCrossProcess(context: Context): Pair<Boolean, Boolean> {
         val prefs = context.getSharedPreferences("alarm_state", Context.MODE_MULTI_PROCESS)
@@ -79,6 +93,12 @@ class AlarmStateManager @Inject constructor() {
     fun getAlarmLabelCrossProcess(context: Context): String {
         return context.getSharedPreferences("alarm_state", Context.MODE_MULTI_PROCESS)
             .getString("alarm_label", "") ?: ""
+    }
+
+    // 获取跨进程的闹钟ID
+    fun getAlarmIdCrossProcess(context: Context): Long {
+        return context.getSharedPreferences("alarm_state", Context.MODE_MULTI_PROCESS)
+            .getLong("alarm_id", -1L)
     }
 
     // 获取跨进程的歌曲信息

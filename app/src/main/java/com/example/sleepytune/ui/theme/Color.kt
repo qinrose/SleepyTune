@@ -2,22 +2,35 @@ package com.example.sleepytune.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// 灰白黑色系 - 简约现代，优雅沉稳
+// 主题配色系统 - 简洁优雅
 
-// 主色调 - 深灰黑
-val Primary = Color(0xFF212121)
-val PrimaryContainer = Color(0xFFE0E0E0)
-val OnPrimaryContainer = Color(0xFF424242)
+// 主色调 - 柔和紫蓝
+val Primary = Color(0xFF7B8CDE)
+val PrimaryDark = Color(0xFF9FA8DA)
 
-// 次要色 - 中灰
-val Secondary = Color(0xFF757575)
-val SecondaryContainer = Color(0xFFF5F5F5)
-val OnSecondaryContainer = Color(0xFF616161)
+// Container 配色
+val PrimaryContainerLight = Color(0xFFE0E0E0)
+val PrimaryContainerDark = Color(0xFF2C2C2C)
+val OnPrimaryContainerLight = Color(0xFF424242)
+val OnPrimaryContainerDark = Color(0xFFE0E0E0)
 
-// 第三色 - 浅灰
+// 次要色 - 柔和粉
+val Secondary = Color(0xFFD4A5A5)
+val SecondaryDark = Color(0xFFE8B4B4)
+
+val SecondaryContainerLight = Color(0xFFF5F5F5)
+val SecondaryContainerDark = Color(0xFF333333)
+val OnSecondaryContainerLight = Color(0xFF616161)
+val OnSecondaryContainerDark = Color(0xFFD0D0D0)
+
+// 第三色
 val Tertiary = Color(0xFF9E9E9E)
-val TertiaryContainer = Color(0xFFFAFAFA)
-val OnTertiaryContainer = Color(0xFF757575)
+val TertiaryDark = Color(0xFFBDBDBD)
+
+val TertiaryContainerLight = Color(0xFFFAFAFA)
+val TertiaryContainerDark = Color(0xFF3A3A3A)
+val OnTertiaryContainerLight = Color(0xFF757575)
+val OnTertiaryContainerDark = Color(0xFFC0C0C0)
 
 // 深色模式背景 - 深灰黑，护目不刺眼
 val BackgroundDark = Color(0xFF121212)
@@ -63,8 +76,3 @@ val OutlineVariantLight = Color(0xFFBDBDBD)
 val AlarmActive = Color(0xFFCF6679)
 val AlarmInactive = Color(0xFF757575)
 val AlarmSnooze = Color(0xFFFFB74D)
-
-// 深色模式扩展色
-val PrimaryDark = Color(0xFF424242)
-val SecondaryDark = Color(0xFF616161)
-val TertiaryDark = Color(0xFF757575)

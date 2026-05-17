@@ -4,11 +4,13 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.example.sleepytune.ui.screen.alarm.AlarmAlertActivity
 
 class AlarmPlaybackReceiver : BroadcastReceiver() {
     
     companion object {
         private const val TAG = "AlarmPlaybackReceiver"
+        const val ACTION_FINISH_ACTIVITY = "com.example.sleepytune.FINISH_ACTIVITY"
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -18,10 +20,15 @@ class AlarmPlaybackReceiver : BroadcastReceiver() {
         
         when (action) {
             AlarmPlaybackService.ACTION_STOP -> {
+                // 设置关闭标志
+                AlarmAlertActivity.setShouldFinish(true)
                 // 停止闹钟服务
                 val stopIntent = Intent(context, AlarmPlaybackService::class.java)
                 stopIntent.setAction(AlarmPlaybackService.ACTION_STOP_ALARM)
                 context.startService(stopIntent)
+                // 发送广播关闭Activity
+                val finishIntent = Intent(ACTION_FINISH_ACTIVITY)
+                context.sendBroadcast(finishIntent)
                 Log.i(TAG, "已停止闹钟")
             }
             

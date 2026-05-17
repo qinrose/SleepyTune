@@ -55,8 +55,13 @@ fun TimePickerWheel(
         }
     }
     
+    // 12小时制下，列表索引需要转换：索引0对应值1，索引11对应值12
+    val hourIndex = if (is24Hour) displayHour else displayHour - 1
+    
     // 处理时间变化
-    fun handleTimeChange(newDisplayHour: Int, newMinute: Int) {
+    fun handleTimeChange(hourIdx: Int, newMinute: Int) {
+        // 12小时制下，索引需要+1转为实际小时值
+        val newDisplayHour = if (is24Hour) hourIdx else hourIdx + 1
         val actualHour = if (is24Hour) {
             newDisplayHour
         } else {
@@ -96,7 +101,7 @@ fun TimePickerWheel(
                 } else {
                     (1..12).map { String.format("%02d", it) }
                 },
-                initialIndex = displayHour,
+                initialIndex = hourIndex,
                 onSelectedChange = { index -> handleTimeChange(index, selectedMinute) },
                 modifier = Modifier.width(100.dp)
             )
@@ -113,7 +118,7 @@ fun TimePickerWheel(
             InfiniteWheelPicker(
                 items = (0..59).map { String.format("%02d", it) },
                 initialIndex = selectedMinute,
-                onSelectedChange = { index -> handleTimeChange(displayHour, index) },
+                onSelectedChange = { index -> handleTimeChange(hourIndex, index) },
                 modifier = Modifier.width(100.dp)
             )
             
@@ -129,7 +134,7 @@ fun TimePickerWheel(
                         color = if (isAM) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
                         onClick = { 
                             isAM = true
-                            handleTimeChange(displayHour, selectedMinute)
+                            handleTimeChange(hourIndex, selectedMinute)
                         }
                     ) {
                         Text(
@@ -145,7 +150,7 @@ fun TimePickerWheel(
                         color = if (!isAM) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
                         onClick = { 
                             isAM = false
-                            handleTimeChange(displayHour, selectedMinute)
+                            handleTimeChange(hourIndex, selectedMinute)
                         }
                     ) {
                         Text(

@@ -32,6 +32,7 @@ class AlarmReceiver : BroadcastReceiver() {
         const val EXTRA_FADE_IN_ENABLED = "fade_in_enabled"
         const val EXTRA_FADE_IN_DURATION = "fade_in_duration"
         const val EXTRA_SNOOZE_MINUTES = "snooze_minutes"
+        const val EXTRA_SNOOZE_ENABLED = "snooze_enabled"
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -81,8 +82,31 @@ class AlarmReceiver : BroadcastReceiver() {
         val fadeInEnabled = intent.getBooleanExtra(EXTRA_FADE_IN_ENABLED, true)
         val fadeInDuration = intent.getIntExtra(EXTRA_FADE_IN_DURATION, 30)
         val snoozeMinutes = intent.getIntExtra(EXTRA_SNOOZE_MINUTES, 5)
+        val snoozeEnabled = intent.getBooleanExtra(EXTRA_SNOOZE_ENABLED, true)
+
+        // 检查是否是备用闹钟
+        val isBackup = intent.getBooleanExtra("is_backup", false)
+        if (isBackup) {
+            Log.i(TAG, "备用闹钟触发，检查主闹钟是否已处理")
+            val prefs = context.getSharedPreferences("alarm_state", Context.MODE_MULTI_PROCESS)
+            val lastTriggeredId = prefs.getLong("last_triggered_id", -1L)
+            val lastTriggerTime = prefs.getLong("last_trigger_time", 0L)
+            val now = System.currentTimeMillis()
+            // 如果同一闹钟在10分钟内已触发，跳过备用闹钟
+            if (lastTriggeredId == alarmId && (now - lastTriggerTime) < 10 * 60 * 1000L) {
+                Log.i(TAG, "主闹钟已处理，跳过备用闹钟")
+                return
+            }
+        }
 
         Log.i(TAG, "Alarm triggered: id=$alarmId, playlist=$playlistId, vibrate=$vibrate, delay=$vibrateDelayMinutes, snooze=$snoozeMinutes")
+
+        // 记录闹钟触发时间和ID
+        context.getSharedPreferences("alarm_state", Context.MODE_MULTI_PROCESS).edit().apply {
+            putLong("last_triggered_id", alarmId)
+            putLong("last_trigger_time", System.currentTimeMillis())
+            apply()
+        }
 
         val serviceIntent = Intent(context, AlarmPlaybackService::class.java).apply {
             putExtra("alarm_id", alarmId)
@@ -96,6 +120,7 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("fade_in_enabled", fadeInEnabled)
             putExtra("fade_in_duration", fadeInDuration)
             putExtra("snooze_minutes", snoozeMinutes)
+            putExtra("snooze_enabled", snoozeEnabled)
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -104,8 +129,9 @@ class AlarmReceiver : BroadcastReceiver() {
             context.startService(serviceIntent)
         }
 
+        // 使用 FLAG_ACTIVITY_SINGLE_TOP 防止重复启动
         val alertIntent = Intent(context, AlarmAlertActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra("alarm_id", alarmId)
             putExtra("label", label)
         }

@@ -231,6 +231,7 @@
     <string name="confirm_cancel">取消</string>
     <string name="confirm_ok">确定</string>
     <string name="confirm_save">保存</string>
+    <string name="confirm_preview">预览</string>
     <string name="confirm">确认</string>
 
     <!-- Battery Optimization -->
@@ -312,4 +313,10 @@
     <string name="playback_order">播放顺序</string>
     <string name="playback_sequential">顺序</string>
     <string name="playback_shuffle">随机</string>
+
+    <!-- Lock Screen Settings -->
+    <string name="lock_screen_popup">锁屏弹出界面</string>
+    <string name="lock_screen_popup_desc">闹钟响铃时在锁屏界面显示提醒</string>
+    <string name="lock_screen_popup_permission">锁屏权限</string>
+    <string name="lock_screen_popup_permission_desc">需要在锁屏界面显示闹钟提醒</string>
 </resources>

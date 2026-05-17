@@ -219,27 +219,8 @@ private fun PlaylistSongItem(
                     modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)),
                     contentScale = ContentScale.Crop
                 )
-            } else {
-                Card(
-                    modifier = Modifier.size(48.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                ) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.MusicNote,
-                            contentDescription = null,
-                            modifier = Modifier.size(22.dp),
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                        )
-                    }
-                }
             }
-
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(if (song.albumArtUri.isNullOrEmpty()) 0.dp else 12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(

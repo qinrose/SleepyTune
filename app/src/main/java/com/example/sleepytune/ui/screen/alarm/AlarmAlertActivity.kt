@@ -46,9 +46,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.sleepytune.R
+import com.example.sleepytune.service.AlarmPlaybackReceiver
 import com.example.sleepytune.service.AlarmPlaybackService
 import com.example.sleepytune.ui.theme.AlarmColorConfig
 import com.example.sleepytune.ui.theme.SleepyTuneTheme
+import com.example.sleepytune.ui.viewmodel.SettingsViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.abs
@@ -57,12 +59,61 @@ class AlarmAlertActivity : ComponentActivity() {
 
     companion object {
         private const val TAG = "AlarmAlertActivity"
+        @Volatile private var isActivityRunning = false
+        @Volatile private var shouldFinish = false
+        
+        fun setShouldFinish(value: Boolean) {
+            shouldFinish = value
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // 检查是否应该关闭
+        if (shouldFinish) {
+            Log.i(TAG, "收到关闭标志，直接finish")
+            finish()
+            return
+        }
+        
+        // 防止重复启动
+        if (isActivityRunning) {
+            Log.i(TAG, "Activity已在运行，检查闹钟状态")
+            // 检查闹钟是否还在播放
+            val prefs = getSharedPreferences("alarm_state", MODE_MULTI_PROCESS)
+            val isPlaying = prefs.getBoolean("is_alarm_playing", false)
+            if (!isPlaying) {
+                Log.i(TAG, "闹钟已停止，关闭Activity")
+                finish()
+                return
+            }
+            return
+        }
+        isActivityRunning = true
+        
+        // 检查锁屏弹出设置
+        val lockScreenPopupEnabled = SettingsViewModel.isLockScreenPopupEnabled(this)
+        
         enableEdgeToEdge()
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        
+        // 根据设置决定是否在锁屏上显示
+        if (lockScreenPopupEnabled) {
+            // 设置锁屏显示标志
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                setShowWhenLocked(true)
+                setTurnScreenOn(true)
+            } else {
+                @Suppress("DEPRECATION")
+                window.addFlags(
+                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                    WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
+                    WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                )
+            }
+        }
         
         // 显式设置导航栏和状态栏完全透明
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -80,7 +131,34 @@ class AlarmAlertActivity : ComponentActivity() {
         }
         
         Log.i(TAG, "闹钟提醒界面启动")
-
+        
+        handleIntent(intent)
+    }
+    
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        Log.i(TAG, "onNewIntent收到新Intent")
+        
+        // 检查是否应该关闭
+        if (shouldFinish) {
+            Log.i(TAG, "收到关闭标志，finish")
+            finish()
+            return
+        }
+        
+        // 检查闹钟是否还在播放
+        val prefs = getSharedPreferences("alarm_state", MODE_MULTI_PROCESS)
+        val isPlaying = prefs.getBoolean("is_alarm_playing", false)
+        if (!isPlaying) {
+            Log.i(TAG, "闹钟已停止，关闭Activity")
+            finish()
+            return
+        }
+        
+        handleIntent(intent)
+    }
+    
+    private fun handleIntent(intent: Intent) {
         val alarmId = intent.getLongExtra("alarm_id", -1L)
         val alarmLabel = intent.getStringExtra("label") ?: ""
 
@@ -89,6 +167,13 @@ class AlarmAlertActivity : ComponentActivity() {
                 AlarmAlertScreen(alarmId = alarmId, alarmLabel = alarmLabel)
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        isActivityRunning = false
+        shouldFinish = false  // 重置关闭标志
+        Log.i(TAG, "闹钟提醒界面销毁")
     }
 
     override fun onBackPressed() {}
@@ -103,11 +188,15 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String) {
     var songArtist by remember { mutableStateOf("") }
     var isVibrating by remember { mutableStateOf(false) }
     var shouldVibrate by remember { mutableStateOf(true) }
+    var snoozeEnabled by remember { mutableStateOf(true) }
     
     // 时间相关状态
     var currentTime by remember { mutableStateOf("") }
     var currentDate by remember { mutableStateOf("") }
     var currentWeekday by remember { mutableStateOf("") }
+    
+    // Activity引用
+    val activity = context as? AlarmAlertActivity
 
     // 启动时立即读取跨进程的歌曲信息和震动状态
     LaunchedEffect(Unit) {
@@ -116,18 +205,39 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String) {
         songArtist = prefs.getString("song_artist", "") ?: ""
         shouldVibrate = prefs.getBoolean("should_vibrate", true)
         isVibrating = prefs.getBoolean("is_vibrating", false)
+        snoozeEnabled = prefs.getBoolean("snooze_enabled", true)
     }
 
     DisposableEffect(Unit) {
         val receiver = object : android.content.BroadcastReceiver() {
             override fun onReceive(ctx: android.content.Context?, intent: Intent?) {
                 intent?.let {
-                    songTitle = it.getStringExtra(AlarmPlaybackService.EXTRA_SONG_TITLE) ?: ""
-                    songArtist = it.getStringExtra(AlarmPlaybackService.EXTRA_SONG_ARTIST) ?: ""
+                    when (it.action) {
+                        AlarmPlaybackService.ACTION_UPDATE_PLAYBACK_INFO -> {
+                            songTitle = it.getStringExtra(AlarmPlaybackService.EXTRA_SONG_TITLE) ?: ""
+                            songArtist = it.getStringExtra(AlarmPlaybackService.EXTRA_SONG_ARTIST) ?: ""
+                        }
+                        AlarmPlaybackService.ACTION_SNOOZE_ENDED -> {
+                            // 贪睡结束，重新读取状态
+                            val prefs = context.getSharedPreferences("alarm_state", android.content.Context.MODE_MULTI_PROCESS)
+                            songTitle = prefs.getString("song_title", "") ?: ""
+                            songArtist = prefs.getString("song_artist", "") ?: ""
+                            shouldVibrate = prefs.getBoolean("should_vibrate", true)
+                            isVibrating = prefs.getBoolean("is_vibrating", false)
+                        }
+                        AlarmPlaybackReceiver.ACTION_FINISH_ACTIVITY -> {
+                            // 收到关闭广播，结束Activity
+                            activity?.finish()
+                        }
+                    }
                 }
             }
         }
-        val filter = android.content.IntentFilter(AlarmPlaybackService.ACTION_UPDATE_PLAYBACK_INFO)
+        val filter = android.content.IntentFilter().apply {
+            addAction(AlarmPlaybackService.ACTION_UPDATE_PLAYBACK_INFO)
+            addAction(AlarmPlaybackService.ACTION_SNOOZE_ENDED)
+            addAction(AlarmPlaybackReceiver.ACTION_FINISH_ACTIVITY)
+        }
         context.registerReceiver(receiver, filter)
         onDispose { context.unregisterReceiver(receiver) }
     }
@@ -210,8 +320,8 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String) {
                 }
             }
             
-            // 歌曲信息区域 - 居中
-            Spacer(modifier = Modifier.weight(1f))
+            // 歌曲信息区域 - 偏上
+            Spacer(modifier = Modifier.weight(0.6f))
             
             if (songTitle.isNotEmpty()) {
                 SongInfoRow(
@@ -225,35 +335,59 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String) {
                 )
             }
             
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.weight(1.4f))
 
             // 按钮区域
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 48.dp)
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Button(
-                        onClick = {
-                            context.startService(Intent(context, AlarmPlaybackService::class.java).apply {
-                                action = AlarmPlaybackService.ACTION_SNOOZE_ALARM
-                            })
-                            (context as? AlarmAlertActivity)?.finish()
-                        },
-                        shape = btnShape,
-                        colors = btnColors,
-                        modifier = Modifier.weight(1f).height(56.dp)
+                // 根据贪睡启用状态决定按钮布局
+                if (snoozeEnabled) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Icon(Icons.Default.Snooze, null, modifier = Modifier.size(20.dp), tint = AlarmColorConfig.ButtonText)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(stringResource(R.string.alarm_snooze), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = AlarmColorConfig.ButtonText)
-                    }
+                        Button(
+                            onClick = {
+                                context.startService(Intent(context, AlarmPlaybackService::class.java).apply {
+                                    action = AlarmPlaybackService.ACTION_SNOOZE_ALARM
+                                })
+                                (context as? AlarmAlertActivity)?.finish()
+                            },
+                            shape = btnShape,
+                            colors = btnColors,
+                            modifier = Modifier.weight(1f).height(56.dp)
+                        ) {
+                            Icon(Icons.Default.Snooze, null, modifier = Modifier.size(20.dp), tint = AlarmColorConfig.ButtonText)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(stringResource(R.string.alarm_snooze), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = AlarmColorConfig.ButtonText)
+                        }
 
+                        Button(
+                            onClick = {
+                                AlarmAlertActivity.setShouldFinish(true)
+                                context.startService(Intent(context, AlarmPlaybackService::class.java).apply {
+                                    action = AlarmPlaybackService.ACTION_STOP_ALARM
+                                })
+                                (context as? AlarmAlertActivity)?.finish()
+                            },
+                            shape = btnShape,
+                            colors = ButtonDefaults.buttonColors(containerColor = AlarmColorConfig.ButtonDanger),
+                            modifier = Modifier.weight(1f).height(56.dp)
+                        ) {
+                            Icon(Icons.Default.Stop, null, modifier = Modifier.size(20.dp), tint = AlarmColorConfig.ButtonText)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(stringResource(R.string.alarm_stop_button), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AlarmColorConfig.ButtonText)
+                        }
+                    }
+                } else {
+                    // 未启用贪睡时，显示两倍长度的关闭按钮
                     Button(
                         onClick = {
+                            AlarmAlertActivity.setShouldFinish(true)
                             context.startService(Intent(context, AlarmPlaybackService::class.java).apply {
                                 action = AlarmPlaybackService.ACTION_STOP_ALARM
                             })
@@ -261,7 +395,7 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String) {
                         },
                         shape = btnShape,
                         colors = ButtonDefaults.buttonColors(containerColor = AlarmColorConfig.ButtonDanger),
-                        modifier = Modifier.weight(1f).height(56.dp)
+                        modifier = Modifier.fillMaxWidth().height(56.dp)
                     ) {
                         Icon(Icons.Default.Stop, null, modifier = Modifier.size(20.dp), tint = AlarmColorConfig.ButtonText)
                         Spacer(modifier = Modifier.width(6.dp))

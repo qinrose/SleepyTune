@@ -26,6 +26,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowRight
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.NightlightRound
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
@@ -66,6 +67,8 @@ import androidx.navigation.NavController
 import com.example.sleepytune.R
 import com.example.sleepytune.ui.viewmodel.LanguageViewModel
 import com.example.sleepytune.ui.viewmodel.ThemeViewModel
+import com.example.sleepytune.ui.viewmodel.SettingsViewModel
+import com.example.sleepytune.utils.PermissionUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,11 +76,14 @@ fun SettingsScreen(navController: NavController) {
     val context = LocalContext.current
     val themeViewModel: ThemeViewModel = hiltViewModel()
     val languageViewModel: LanguageViewModel = hiltViewModel()
+    val settingsViewModel: SettingsViewModel = hiltViewModel()
     val themeMode by themeViewModel.themeMode.collectAsState()
     val currentLanguage by languageViewModel.currentLanguage.collectAsState()
+    val lockScreenPopupEnabled by settingsViewModel.lockScreenPopupEnabled.collectAsState()
 
     var showThemeDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
+    var showLockScreenPermissionDialog by remember { mutableStateOf(false) }
 
     // 获取当前语言显示名称
     val languageDisplayName = remember(currentLanguage) {
@@ -120,6 +126,25 @@ fun SettingsScreen(navController: NavController) {
                     ThemeViewModel.ThemeMode.AUTO -> stringResource(R.string.theme_system)
                 }
             ) { showThemeDialog = true }
+
+            // 锁屏弹出设置
+            SettingSwitchItem(
+                icon = Icons.Filled.Lock,
+                title = stringResource(R.string.lock_screen_popup),
+                description = stringResource(R.string.lock_screen_popup_desc),
+                checked = lockScreenPopupEnabled,
+                onCheckedChange = { enabled ->
+                    if (enabled) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                            showLockScreenPermissionDialog = true
+                        } else {
+                            settingsViewModel.setLockScreenPopupEnabled(true)
+                        }
+                    } else {
+                        settingsViewModel.setLockScreenPopupEnabled(false)
+                    }
+                }
+            )
 
             SettingItem(Icons.Filled.Security, stringResource(R.string.settings_permissions), stringResource(R.string.settings_permissions_desc)) {
                 navController.navigate("permissionGuide")
@@ -205,6 +230,39 @@ fun SettingsScreen(navController: NavController) {
             containerColor = MaterialTheme.colorScheme.surface
         )
     }
+
+    if (showLockScreenPermissionDialog) {
+        AlertDialog(
+            onDismissRequest = { showLockScreenPermissionDialog = false },
+            title = { Text(stringResource(R.string.lock_screen_popup_permission), style = MaterialTheme.typography.titleLarge) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.lock_screen_popup_permission_desc), style = MaterialTheme.typography.bodyMedium)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("点击\"去设置\"后，请开启\"显示在锁屏上\"或\"在锁屏上显示\"权限。", style = MaterialTheme.typography.bodyMedium)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showLockScreenPermissionDialog = false
+                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = Uri.parse("package:${context.packageName}")
+                    }
+                    context.startActivity(intent)
+                    settingsViewModel.setLockScreenPopupEnabled(true)
+                }) {
+                    Text(stringResource(R.string.permission_settings))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLockScreenPermissionDialog = false }) {
+                    Text(stringResource(R.string.confirm_cancel))
+                }
+            },
+            shape = RoundedCornerShape(20.dp),
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    }
 }
 
 @Composable
@@ -256,6 +314,65 @@ fun SettingItem(
                 Icons.AutoMirrored.Filled.ArrowRight, "more",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                 modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun SettingSwitchItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Card(
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                modifier = Modifier.size(44.dp)
+            ) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Icon(
+                        icon, title,
+                        modifier = Modifier.size(22.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.primary,
+                    checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                    uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
             )
         }
     }

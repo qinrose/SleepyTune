@@ -24,8 +24,6 @@ import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,6 +34,7 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
@@ -114,7 +113,23 @@ fun AlarmEditScreen(navController: NavController, alarmId: Long?) {
                     }
                 },
                 actions = {
-                    IconButton(onClick = {
+                    TextButton(onClick = {
+                        previewAlarm(
+                            context = context,
+                            playlistId = selectedPlaylistId,
+                            label = if (label.isBlank()) context.getString(R.string.confirm_preview) else label,
+                            vibrate = vibrate,
+                            vibrateDelayMinutes = vibrateDelayMinutes,
+                            volume = volume,
+                            shuffleMode = shuffleMode,
+                            fadeInEnabled = fadeInEnabled,
+                            fadeInDuration = fadeInDuration,
+                            snoozeMinutes = snoozeMinutes
+                        )
+                    }) {
+                        Text(stringResource(R.string.confirm_preview))
+                    }
+                    TextButton(onClick = {
                         viewModel.updateTime(hour, minute)
                         viewModel.setPlaylist(selectedPlaylistId)
                         viewModel.setRepeatDays(repeatDays)
@@ -130,7 +145,7 @@ fun AlarmEditScreen(navController: NavController, alarmId: Long?) {
                         viewModel.saveAlarm(context)
                         navController.popBackStack()
                     }) {
-                        Icon(Icons.Default.Check, contentDescription = stringResource(R.string.confirm_save))
+                        Text(stringResource(R.string.confirm_save))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -372,10 +387,13 @@ private fun SettingsCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(stringResource(R.string.alarm_snooze), style = MaterialTheme.typography.bodyLarge)
-            Checkbox(
+            Switch(
                 checked = snoozeEnabled,
                 onCheckedChange = onSnoozeChange,
-                colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.primary,
+                    checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                )
             )
         }
 
@@ -422,24 +440,11 @@ private fun SettingsCard(
 }
 
 @Composable
-private fun SettingRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(label, style = MaterialTheme.typography.bodyLarge)
-        Checkbox(checked = checked, onCheckedChange = onCheckedChange,
-            colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary))
-    }
-}
-
-@Composable
 private fun VolumeCard(
     volume: Float, fadeInEnabled: Boolean, fadeInDuration: Int,
     onVolumeChange: (Float) -> Unit, onFadeInChange: (Boolean) -> Unit, onFadeInDurationChange: (Int) -> Unit
 ) {
-    var useCustomVolume by remember { mutableStateOf(volume < 0f) }
+    var useCustomVolume by remember { mutableStateOf(volume >= 0f) }
     
     FlatCard(title = stringResource(R.string.settings_volume)) {
         Row(
@@ -547,4 +552,47 @@ private fun FlatCard(title: String, content: @Composable () -> Unit) {
             content()
         }
     }
+}
+
+private fun previewAlarm(
+    context: android.content.Context,
+    playlistId: Long,
+    label: String,
+    vibrate: Boolean,
+    vibrateDelayMinutes: Int,
+    volume: Float,
+    shuffleMode: Boolean,
+    fadeInEnabled: Boolean,
+    fadeInDuration: Int,
+    snoozeMinutes: Int
+) {
+    if (com.example.sleepytune.service.AlarmPlaybackService.isPlaying()) {
+        com.example.sleepytune.service.AlarmPlaybackService.stopAlarm()
+    }
+    
+    val serviceIntent = android.content.Intent(context, com.example.sleepytune.service.AlarmPlaybackService::class.java).apply {
+        putExtra("alarm_id", -1L)
+        putExtra("playlist_id", playlistId)
+        putExtra("vibrate", vibrate)
+        putExtra("vibrate_delay_minutes", vibrateDelayMinutes)
+        putExtra("volume", volume)
+        putExtra("label", label)
+        putExtra("shuffle_mode", shuffleMode)
+        putExtra("fade_in_enabled", fadeInEnabled)
+        putExtra("fade_in_duration", fadeInDuration)
+        putExtra("snooze_minutes", snoozeMinutes)
+    }
+    
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+        context.startForegroundService(serviceIntent)
+    } else {
+        context.startService(serviceIntent)
+    }
+    
+    val alertIntent = android.content.Intent(context, com.example.sleepytune.ui.screen.alarm.AlarmAlertActivity::class.java).apply {
+        flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
+        putExtra("alarm_id", -1L)
+        putExtra("label", label)
+    }
+    context.startActivity(alertIntent)
 }
