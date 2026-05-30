@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.sp
 import com.example.sleepytune.R
 import com.example.sleepytune.service.AlarmPlaybackReceiver
 import com.example.sleepytune.service.AlarmPlaybackService
+import com.example.sleepytune.service.AlarmReceiver
 import com.example.sleepytune.ui.theme.AlarmColorConfig
 import com.example.sleepytune.ui.theme.SleepyTuneTheme
 import com.example.sleepytune.ui.viewmodel.SettingsViewModel
@@ -133,9 +134,51 @@ class AlarmAlertActivity : ComponentActivity() {
         Log.i(TAG, "闹钟提醒界面启动")
 
         handleIntent(intent)
+
+        // 进程恢复检查：如果 Service 未运行，从持久化状态恢复启动
+        if (AlarmPlaybackService.getInstance() == null) {
+            Log.i(TAG, "Service 未运行，从持久化状态恢复")
+            restoreAlarmPlayback()
+        }
+
         setContent {
             SleepyTuneTheme {
                 AlarmAlertScreen(alarmId = alarmId, alarmLabel = alarmLabel, snoozeEnabled = snoozeEnabled)
+            }
+        }
+    }
+
+    // 从持久化状态恢复闹钟播放
+    private fun restoreAlarmPlayback() {
+        val prefs = getSharedPreferences("alarm_state", MODE_MULTI_PROCESS)
+        val alarmId = prefs.getLong("alarm_id", -1L)
+        val label = prefs.getString("alarm_label", "闹钟") ?: "闹钟"
+        val snoozeEnabled = prefs.getBoolean("snooze_enabled", true)
+
+        // 从歌单持久化读取
+        val playlistPrefs = getSharedPreferences("alarm_playlist", MODE_PRIVATE)
+        val playlistId = playlistPrefs.getLong("playlist_id", 0L)
+        val ringtonePath = playlistPrefs.getString("ringtone_path", null)
+
+        if (alarmId >= 0) {
+            Log.i(TAG, "恢复闹钟播放: alarmId=$alarmId, playlistId=$playlistId")
+            val serviceIntent = Intent(this, AlarmPlaybackService::class.java).apply {
+                putExtra("alarm_id", alarmId)
+                putExtra("playlist_id", playlistId)
+                putExtra("ringtone_path", ringtonePath)
+                putExtra("label", label)
+                putExtra("snooze_enabled", snoozeEnabled)
+                putExtra("vibrate", true)
+                putExtra("volume", 1.0f)
+                putExtra("shuffle_mode", false)
+                putExtra("fade_in_enabled", true)
+                putExtra("fade_in_duration", 30)
+                putExtra("snooze_minutes", 5)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent)
+            } else {
+                startService(serviceIntent)
             }
         }
     }
@@ -201,13 +244,25 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
     // Activity引用
     val activity = context as? AlarmAlertActivity
 
-    // 启动时立即读取跨进程的歌曲信息和震动状态
+    // 首次加载：优先从Intent读取（预加载模式，零延迟）
     LaunchedEffect(Unit) {
-        val prefs = context.getSharedPreferences("alarm_state", android.content.Context.MODE_MULTI_PROCESS)
-        songTitle = prefs.getString("song_title", "") ?: ""
-        songArtist = prefs.getString("song_artist", "") ?: ""
-        shouldVibrate = prefs.getBoolean("should_vibrate", true)
-        isVibrating = prefs.getBoolean("is_vibrating", false)
+        val intent = activity?.intent
+        val intentTitle = intent?.getStringExtra(AlarmReceiver.EXTRA_SONG_TITLE) ?: ""
+        val intentArtist = intent?.getStringExtra(AlarmReceiver.EXTRA_SONG_ARTIST) ?: ""
+
+        if (intentTitle.isNotEmpty()) {
+            songTitle = intentTitle
+            songArtist = intentArtist
+        } else {
+            // 兜底：从 SharedPreferences 读取
+            val prefs = context.getSharedPreferences("alarm_state", android.content.Context.MODE_MULTI_PROCESS)
+            songTitle = prefs.getString("song_title", "") ?: ""
+            songArtist = prefs.getString("song_artist", "") ?: ""
+        }
+        shouldVibrate = context.getSharedPreferences("alarm_state", android.content.Context.MODE_MULTI_PROCESS)
+            .getBoolean("should_vibrate", true)
+        isVibrating = context.getSharedPreferences("alarm_state", android.content.Context.MODE_MULTI_PROCESS)
+            .getBoolean("is_vibrating", false)
     }
 
     DisposableEffect(Unit) {

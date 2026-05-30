@@ -95,53 +95,76 @@ class NotificationHelper @Inject constructor(
         }
     }
     
-    // 构建闹钟播放通知
+    // 构建闹钟播放通知（含歌曲信息和震动按钮）
     fun buildAlarmNotification(
         alarmLabel: String,
         isPlaying: Boolean,
+        songTitle: String? = null,
+        songIndex: Int = 0,
+        songTotal: Int = 0,
+        isVibrating: Boolean = false,
         alarmId: Long = -1L,
         playlistName: String? = null,
         nextAlarmTime: String? = null
     ): Notification {
-        // 点击通知打开应用
         val contentIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
         val contentPendingIntent = PendingIntent.getActivity(
-            context,
-            0,
-            contentIntent,
+            context, 0, contentIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        
+
         // 停止按钮
         val stopIntent = Intent(context, AlarmPlaybackReceiver::class.java).apply {
             action = ACTION_STOP
         }
         val stopPendingIntent = PendingIntent.getBroadcast(
-            context,
-            1,
-            stopIntent,
+            context, 1, stopIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        
+
         // 贪睡按钮
         val snoozeIntent = Intent(context, AlarmPlaybackReceiver::class.java).apply {
             action = ACTION_SNOOZE
         }
         val snoozePendingIntent = PendingIntent.getBroadcast(
-            context,
-            2,
-            snoozeIntent,
+            context, 2, snoozeIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        
+
         // 构建通知内容
         val contentText = buildString {
-            append(if (isPlaying) "正在播放..." else "贪睡中...")
+            if (isPlaying) {
+                if (!songTitle.isNullOrEmpty()) {
+                    append("$songTitle")
+                    if (songTotal > 1) append(" ($songIndex/$songTotal)")
+                } else {
+                    append("正在播放...")
+                }
+            } else {
+                append("贪睡中...")
+            }
             playlistName?.let { append(" • $it") }
         }
-        
+
+        // 震动控制按钮
+        val stopVibrateIntent = Intent(context, AlarmPlaybackReceiver::class.java).apply {
+            action = "com.example.sleepytune.ACTION_STOP_VIBRATE"
+        }
+        val stopVibratePendingIntent = PendingIntent.getBroadcast(
+            context, 3, stopVibrateIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val pauseVibrateIntent = Intent(context, AlarmPlaybackReceiver::class.java).apply {
+            action = "com.example.sleepytune.ACTION_PAUSE_VIBRATE"
+        }
+        val pauseVibratePendingIntent = PendingIntent.getBroadcast(
+            context, 4, pauseVibrateIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         return NotificationCompat.Builder(context, CHANNEL_ID_ALARM)
             .setContentTitle(alarmLabel)
             .setContentText(contentText)
@@ -152,21 +175,16 @@ class NotificationHelper @Inject constructor(
             .setOngoing(isPlaying)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setAutoCancel(false)
-            .addAction(
-                android.R.drawable.ic_media_pause,
-                "停止",
-                stopPendingIntent
-            )
-            .addAction(
-                android.R.drawable.ic_media_next,
-                "贪睡",
-                snoozePendingIntent
-            )
+            .setSound(null)
+            .setDefaults(0)
+            .addAction(android.R.drawable.ic_media_pause, "停止", stopPendingIntent)
+            .addAction(android.R.drawable.ic_media_next, "贪睡", snoozePendingIntent)
             .apply {
-                // 显示下次闹钟时间
-                nextAlarmTime?.let {
-                    setSubText("下次闹钟: $it")
+                if (isVibrating) {
+                    addAction(android.R.drawable.ic_lock_silent_mode, "关闭震动", stopVibratePendingIntent)
+                    addAction(android.R.drawable.ic_media_pause, "稍后再震", pauseVibratePendingIntent)
                 }
+                nextAlarmTime?.let { setSubText("下次闹钟: $it") }
             }
             .build()
     }
@@ -194,16 +212,24 @@ class NotificationHelper @Inject constructor(
             .build()
     }
     
-    // 更新闹钟通知
+    // 更新闹钟通知（含歌曲信息和震动状态）
     fun updateAlarmNotification(
         alarmLabel: String,
         isPlaying: Boolean,
+        songTitle: String? = null,
+        songIndex: Int = 0,
+        songTotal: Int = 0,
+        isVibrating: Boolean = false,
         playlistName: String? = null,
         nextAlarmTime: String? = null
     ) {
         val notification = buildAlarmNotification(
             alarmLabel = alarmLabel,
             isPlaying = isPlaying,
+            songTitle = songTitle,
+            songIndex = songIndex,
+            songTotal = songTotal,
+            isVibrating = isVibrating,
             playlistName = playlistName,
             nextAlarmTime = nextAlarmTime
         )
@@ -219,5 +245,45 @@ class NotificationHelper @Inject constructor(
     // 取消睡眠定时器通知
     fun cancelSleepTimerNotification() {
         notificationManager.cancel(NOTIFICATION_ID_SLEEP_TIMER)
+    }
+
+    // 显示贪睡通知（显示剩余时间）
+    fun showSnoozeNotification(alarmLabel: String, snoozeMinutes: Int) {
+        val contentIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val contentPendingIntent = PendingIntent.getActivity(
+            context, 0, contentIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // 取消贪睡按钮
+        val cancelIntent = Intent(context, AlarmPlaybackReceiver::class.java).apply {
+            action = ACTION_STOP
+        }
+        val cancelPendingIntent = PendingIntent.getBroadcast(
+            context, 1, cancelIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID_SNOOZE)
+            .setContentTitle(alarmLabel)
+            .setContentText("${snoozeMinutes}分钟后再次响铃")
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentIntent(contentPendingIntent)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setOngoing(true)
+            .addAction(android.R.drawable.ic_media_pause, "取消贪睡", cancelPendingIntent)
+            .build()
+
+        notificationManager.notify(NOTIFICATION_ID_SNOOZE, notification)
+        Log.i(TAG, "贪睡通知已显示: ${snoozeMinutes}分钟后响铃")
+    }
+
+    // 取消贪睡通知
+    fun cancelSnoozeNotification() {
+        notificationManager.cancel(NOTIFICATION_ID_SNOOZE)
+        Log.i(TAG, "贪睡通知已取消")
     }
 }

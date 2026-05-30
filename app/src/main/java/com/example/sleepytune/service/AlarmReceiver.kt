@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
+import com.example.sleepytune.data.repository.PlaylistRepository
 import com.example.sleepytune.ui.screen.alarm.AlarmAlertActivity
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CoroutineScope
@@ -33,6 +34,9 @@ class AlarmReceiver : BroadcastReceiver() {
         const val EXTRA_FADE_IN_DURATION = "fade_in_duration"
         const val EXTRA_SNOOZE_MINUTES = "snooze_minutes"
         const val EXTRA_SNOOZE_ENABLED = "snooze_enabled"
+
+        const val EXTRA_SONG_TITLE = "song_title"
+        const val EXTRA_SONG_ARTIST = "song_artist"
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -57,7 +61,10 @@ class AlarmReceiver : BroadcastReceiver() {
                 rescheduleAllAlarms(alarmScheduler, alarmRepository)
             }
             ACTION_ALARM_TRIGGERED, "com.example.sleepytune.ALARM_BACKUP" -> {
-                handleAlarmTriggered(context, intent, alarmScheduler, alarmRepository)
+                handleAlarmTriggered(context, intent, alarmScheduler, alarmRepository, hiltEntryPoint)
+            }
+            AlarmSnoozeManager.ACTION_SNOOZE_TRIGGER -> {
+                handleSnoozeTriggered(context, intent, hiltEntryPoint)
             }
             else -> {
                 Log.w(TAG, "Unknown broadcast: ${intent.action}")
@@ -69,7 +76,8 @@ class AlarmReceiver : BroadcastReceiver() {
         context: Context,
         intent: Intent,
         alarmScheduler: AlarmScheduler,
-        alarmRepository: com.example.sleepytune.data.repository.AlarmRepository
+        alarmRepository: com.example.sleepytune.data.repository.AlarmRepository,
+        hiltEntryPoint: AlarmReceiverEntryPoint
     ) {
         val alarmId = intent.getLongExtra(EXTRA_ALARM_ID, -1L)
         val playlistId = intent.getLongExtra(EXTRA_PLAYLIST_ID, 0L)
@@ -107,14 +115,22 @@ class AlarmReceiver : BroadcastReceiver() {
             context.startService(serviceIntent)
         }
 
-        // 使用 FLAG_ACTIVITY_SINGLE_TOP 防止重复启动
-        val alertIntent = Intent(context, AlarmAlertActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            putExtra("alarm_id", alarmId)
-            putExtra("label", label)
-            putExtra("snooze_enabled", snoozeEnabled)
+        CoroutineScope(Dispatchers.IO).launch {
+            val playlistRepository = hiltEntryPoint.playlistRepository()
+
+            // 预加载歌曲信息，立即传给 Activity
+            val (songTitle, songArtist) = loadSongInfo(ringtonePath, playlistId, playlistRepository)
+
+            val alertIntent = Intent(context, AlarmAlertActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                putExtra("alarm_id", alarmId)
+                putExtra("label", label)
+                putExtra("snooze_enabled", snoozeEnabled)
+                putExtra(EXTRA_SONG_TITLE, songTitle)
+                putExtra(EXTRA_SONG_ARTIST, songArtist)
+            }
+            context.startActivity(alertIntent)
         }
-        context.startActivity(alertIntent)
 
         CoroutineScope(Dispatchers.IO).launch {
             val alarm = alarmRepository.getAlarm(alarmId)
@@ -122,6 +138,28 @@ class AlarmReceiver : BroadcastReceiver() {
                 alarmScheduler.schedule(alarm)
             }
         }
+    }
+
+    // 预加载歌曲信息（IO线程），避免Activity显示时歌曲名为空
+    private suspend fun loadSongInfo(
+        ringtonePath: String?,
+        playlistId: Long,
+        playlistRepository: PlaylistRepository
+    ): Pair<String, String> {
+        if (!ringtonePath.isNullOrEmpty()) {
+            val fileName = ringtonePath.substringAfterLast("/").substringBeforeLast(".")
+            return Pair(fileName, "闹钟铃声")
+        }
+        if (playlistId > 0) {
+            val songIds = playlistRepository.getSongsInPlaylist(playlistId)
+            if (songIds.isNotEmpty()) {
+                val music = playlistRepository.getMusicById(songIds.first())
+                if (music != null) {
+                    return Pair(music.title, music.artist)
+                }
+            }
+        }
+        return Pair("", "")
     }
 
     private fun rescheduleAllAlarms(
@@ -141,10 +179,75 @@ class AlarmReceiver : BroadcastReceiver() {
         }
     }
 
+    // 处理贪睡触发（AlarmSnoozeManager 调度的闹钟）
+    private fun handleSnoozeTriggered(
+        context: Context,
+        intent: Intent,
+        hiltEntryPoint: AlarmReceiverEntryPoint
+    ) {
+        Log.i(TAG, "贪睡触发")
+
+        // 取消贪睡通知
+        val notificationHelper = hiltEntryPoint.notificationHelper()
+        notificationHelper.cancelSnoozeNotification()
+
+        val alarmId = intent.getLongExtra("alarm_id", -1L)
+        val playlistId = intent.getLongExtra("playlist_id", 0L)
+        val ringtonePath = intent.getStringExtra("ringtone_path")
+        val vibrate = intent.getBooleanExtra("vibrate", true)
+        val volume = intent.getFloatExtra("volume", 1.0f)
+        val label = intent.getStringExtra("label") ?: "闹钟"
+        val shuffleMode = intent.getBooleanExtra("shuffle_mode", false)
+        val fadeInEnabled = intent.getBooleanExtra("fade_in_enabled", true)
+        val fadeInDuration = intent.getIntExtra("fade_in_duration", 30)
+        val snoozeMinutes = intent.getIntExtra("snooze_minutes", 5)
+
+        Log.i(TAG, "贪睡触发: alarmId=$alarmId, label=$label")
+
+        // 启动播放服务
+        val serviceIntent = Intent(context, AlarmPlaybackService::class.java).apply {
+            putExtra("alarm_id", alarmId)
+            putExtra("playlist_id", playlistId)
+            putExtra("ringtone_path", ringtonePath)
+            putExtra("vibrate", vibrate)
+            putExtra("volume", volume)
+            putExtra("label", label)
+            putExtra("shuffle_mode", shuffleMode)
+            putExtra("fade_in_enabled", fadeInEnabled)
+            putExtra("fade_in_duration", fadeInDuration)
+            putExtra("snooze_minutes", snoozeMinutes)
+            putExtra("snooze_enabled", true)
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.startForegroundService(serviceIntent)
+        } else {
+            context.startService(serviceIntent)
+        }
+
+        // 预加载歌曲信息并启动 Activity
+        CoroutineScope(Dispatchers.IO).launch {
+            val playlistRepository = hiltEntryPoint.playlistRepository()
+            val (songTitle, songArtist) = loadSongInfo(ringtonePath, playlistId, playlistRepository)
+
+            val alertIntent = Intent(context, AlarmAlertActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                putExtra("alarm_id", alarmId)
+                putExtra("label", label)
+                putExtra("snooze_enabled", true)
+                putExtra(EXTRA_SONG_TITLE, songTitle)
+                putExtra(EXTRA_SONG_ARTIST, songArtist)
+            }
+            context.startActivity(alertIntent)
+        }
+    }
+
     @dagger.hilt.EntryPoint
     @dagger.hilt.InstallIn(dagger.hilt.components.SingletonComponent::class)
     interface AlarmReceiverEntryPoint {
         fun alarmScheduler(): AlarmScheduler
         fun alarmRepository(): com.example.sleepytune.data.repository.AlarmRepository
+        fun playlistRepository(): PlaylistRepository
+        fun notificationHelper(): NotificationHelper
     }
 }

@@ -124,6 +124,7 @@ fun AlarmEditScreen(navController: NavController, alarmId: Long?) {
                             shuffleMode = shuffleMode,
                             fadeInEnabled = fadeInEnabled,
                             fadeInDuration = fadeInDuration,
+                            snoozeEnabled = snoozeEnabled,
                             snoozeMinutes = snoozeMinutes
                         )
                     }) {
@@ -448,7 +449,8 @@ private fun VolumeCard(
     volume: Float, fadeInEnabled: Boolean, fadeInDuration: Int,
     onVolumeChange: (Float) -> Unit, onFadeInChange: (Boolean) -> Unit, onFadeInDurationChange: (Int) -> Unit
 ) {
-    var useCustomVolume by remember { mutableStateOf(volume >= 0f) }
+    // 使用 key 参数确保 volume 变化时重新计算
+    var useCustomVolume by remember(volume) { mutableStateOf(volume >= 0f) }
     
     FlatCard(title = stringResource(R.string.settings_volume)) {
         Row(
@@ -568,6 +570,7 @@ private fun previewAlarm(
     shuffleMode: Boolean,
     fadeInEnabled: Boolean,
     fadeInDuration: Int,
+    snoozeEnabled: Boolean,
     snoozeMinutes: Int
 ) {
     if (com.example.sleepytune.service.AlarmPlaybackService.isPlaying()) {
@@ -584,6 +587,7 @@ private fun previewAlarm(
         putExtra("shuffle_mode", shuffleMode)
         putExtra("fade_in_enabled", fadeInEnabled)
         putExtra("fade_in_duration", fadeInDuration)
+        putExtra("snooze_enabled", snoozeEnabled)
         putExtra("snooze_minutes", snoozeMinutes)
     }
     
@@ -597,7 +601,7 @@ private fun previewAlarm(
         flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
         putExtra("alarm_id", -1L)
         putExtra("label", label)
-        putExtra("snooze_enabled", true)
+        putExtra("snooze_enabled", snoozeEnabled)
     }
     context.startActivity(alertIntent)
 }

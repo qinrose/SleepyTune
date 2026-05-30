@@ -21,7 +21,7 @@ data class Alarm(
     val playlistId: Long = 0L,
     val ringtone: String? = null,
     val vibrate: Boolean = true,
-    val snoozeEnabled: Boolean = true,
+    val snoozeEnabled: Boolean = false,  // 默认不启用贪睡
     val snoozeMinutes: Int = 5,
     val label: String? = null,
     val volume: Float = 1.0f,
