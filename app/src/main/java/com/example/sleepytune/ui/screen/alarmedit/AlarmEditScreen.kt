@@ -211,7 +211,9 @@ private fun TimePickerCard(
                 onCheckedChange = { onToggleTimeFormat() },
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = MaterialTheme.colorScheme.primary,
-                    checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                    checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                    uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             )
         }
@@ -392,7 +394,9 @@ private fun SettingsCard(
                 onCheckedChange = onSnoozeChange,
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = MaterialTheme.colorScheme.primary,
-                    checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                    checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                    uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             )
         }
@@ -593,6 +597,7 @@ private fun previewAlarm(
         flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
         putExtra("alarm_id", -1L)
         putExtra("label", label)
+        putExtra("snooze_enabled", true)
     }
     context.startActivity(alertIntent)
 }

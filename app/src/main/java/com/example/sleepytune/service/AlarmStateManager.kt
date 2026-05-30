@@ -2,9 +2,12 @@ package com.example.sleepytune.service
 
 import android.content.Context
 import android.content.Intent
+import com.example.sleepytune.data.local.entity.Music
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import org.json.JSONArray
+import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -138,10 +141,84 @@ class AlarmStateManager @Inject constructor() {
         _songArtist.value = ""
     }
 
+    // 持久化歌单列表（进程恢复用）
+    fun persistPlaylist(context: Context, musicList: List<Music>, currentIndex: Int) {
+        val arr = JSONArray()
+        musicList.forEach { music ->
+            arr.put(JSONObject().apply {
+                put("id", music.id)
+                put("title", music.title)
+                put("artist", music.artist)
+                put("path", music.path)
+            })
+        }
+        context.getSharedPreferences("alarm_playlist", Context.MODE_PRIVATE).edit().apply {
+            putString("music_list", arr.toString())
+            putInt("current_index", currentIndex)
+            apply()
+        }
+    }
+
+    // 加载持久化的歌单
+    fun loadPlaylist(context: Context): Pair<List<Music>, Int> {
+        val prefs = context.getSharedPreferences("alarm_playlist", Context.MODE_PRIVATE)
+        val json = prefs.getString("music_list", null) ?: return Pair(emptyList(), 0)
+        val index = prefs.getInt("current_index", 0)
+        val arr = JSONArray(json)
+        val list = mutableListOf<Music>()
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            list.add(Music(
+                id = obj.getLong("id"),
+                title = obj.optString("title", ""),
+                artist = obj.optString("artist", ""),
+                album = "",
+                duration = 0L,
+                size = 0L,
+                path = obj.getString("path"),
+                mimeType = "audio/*"
+            ))
+        }
+        return Pair(list, index)
+    }
+
+    // 持久化单铃声路径
+    fun persistRingtonePath(context: Context, path: String?) {
+        context.getSharedPreferences("alarm_playlist", Context.MODE_PRIVATE).edit().apply {
+            putString("ringtone_path", path)
+            apply()
+        }
+    }
+
+    // 加载单铃声路径
+    fun loadRingtonePath(context: Context): String? {
+        return context.getSharedPreferences("alarm_playlist", Context.MODE_PRIVATE)
+            .getString("ringtone_path", null)
+    }
+
+    // 持久化歌单ID
+    fun persistPlaylistId(context: Context, playlistId: Long) {
+        context.getSharedPreferences("alarm_playlist", Context.MODE_PRIVATE).edit().apply {
+            putLong("playlist_id", playlistId)
+            apply()
+        }
+    }
+
+    // 加载歌单ID
+    fun loadPlaylistId(context: Context): Long {
+        return context.getSharedPreferences("alarm_playlist", Context.MODE_PRIVATE)
+            .getLong("playlist_id", 0L)
+    }
+
+    // 清除歌单持久化状态
+    fun clearPlaylistState(context: Context) {
+        context.getSharedPreferences("alarm_playlist", Context.MODE_PRIVATE).edit().clear().apply()
+    }
+
     // 清除跨进程持久化状态
     fun clearPersistedState(context: Context) {
-        // 使用 commit() 同步写入，确保状态立即清除
         context.getSharedPreferences("alarm_state", Context.MODE_MULTI_PROCESS).edit().clear().commit()
+        clearPlaylistState(context)
         clearState()
     }
 }

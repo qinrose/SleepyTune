@@ -37,6 +37,8 @@ class AlarmPlaybackService : android.app.Service() {
         private const val WAKE_LOCK_TIMEOUT_MS = 10 * 60 * 1000L
 
         private const val LOCAL_MUSIC_VOLUME_FACTOR = 0.8f
+        private const val PREPARE_TIMEOUT_MS = 10_000L
+        private const val MAX_CONSECUTIVE_FAILURES = 3
 
         const val ACTION_STOP = "com.example.sleepytune.ACTION_STOP"
         const val ACTION_SNOOZE = "com.example.sleepytune.ACTION_SNOOZE"
@@ -80,6 +82,9 @@ class AlarmPlaybackService : android.app.Service() {
     private var snoozeVibrateJob: Job? = null
     private var currentMusicIndex = 0
     private var musicList: List<com.example.sleepytune.data.local.entity.Music> = emptyList()
+    private var isMusicLoading = false
+    private var prepareTimeoutJob: Job? = null
+    private var consecutiveFailures = 0
 
     private var alarmId: Long = -1L
     private var playlistId: Long = 0L
@@ -176,7 +181,7 @@ class AlarmPlaybackService : android.app.Service() {
                     return START_NOT_STICKY
                 }
                 ACTION_NEXT_SONG -> {
-                    playNextSong()
+                    handleNextSong()
                     return START_NOT_STICKY
                 }
             }
@@ -208,7 +213,11 @@ class AlarmPlaybackService : android.app.Service() {
 
     private fun startAlarm() {
         isPlaying = true
+        isMusicLoading = true
+        consecutiveFailures = 0
         alarmStateManager.persistAlarmPlaying(applicationContext, true, alarmId, alarmLabel)
+        alarmStateManager.persistRingtonePath(applicationContext, ringtonePath)
+        alarmStateManager.persistPlaylistId(applicationContext, playlistId)
 
         // 持久化震动状态
         val isCurrentlyVibrating = shouldVibrate && vibrateDelayMinutes == 0
@@ -245,37 +254,40 @@ class AlarmPlaybackService : android.app.Service() {
     }
 
     private suspend fun loadAndPlayMusic() {
-        when {
-            ringtonePath != null -> {
-                // 单个铃声文件，提取文件名作为歌名
-                val fileName = ringtonePath!!.substringAfterLast("/").substringBeforeLast(".")
-                broadcastPlaybackInfo(fileName, "闹钟铃声", 0, 1)
-                playAudioFile(ringtonePath!!, isSingleFile = true, isFirstSong = true)
-            }
-            playlistId > 0 -> {
-                val playlistSongs = playlistRepository.getSongsInPlaylist(playlistId)
-                if (playlistSongs.isNotEmpty()) {
-                    musicList = playlistSongs.mapNotNull { songId ->
-                        playlistRepository.getMusicById(songId)
-                    }
-
-                    if (musicList.isNotEmpty()) {
-                        if (shuffleMode) {
-                            musicList = musicList.shuffled()
-                            Log.i(TAG, "随机播放模式：已打乱歌单顺序")
-                        }
-                        currentMusicIndex = 0
-                        playCurrentSong()
-                        return
-                    }
+        try {
+            when {
+                ringtonePath != null -> {
+                    val fileName = ringtonePath!!.substringAfterLast("/").substringBeforeLast(".")
+                    broadcastPlaybackInfo(fileName, "闹钟铃声", 0, 1)
+                    playAudioFile(ringtonePath!!, isSingleFile = true, isFirstSong = true)
                 }
-                Log.w(TAG, "歌单为空或无效，使用默认铃声: playlistId=$playlistId")
-                playDefaultSound()
+                playlistId > 0 -> {
+                    val playlistSongs = playlistRepository.getSongsInPlaylist(playlistId)
+                    if (playlistSongs.isNotEmpty()) {
+                        musicList = playlistSongs.mapNotNull { songId ->
+                            playlistRepository.getMusicById(songId)
+                        }
+                        if (musicList.isNotEmpty()) {
+                            if (shuffleMode) musicList = musicList.shuffled()
+                            currentMusicIndex = 0
+                            persistPlaylistState()
+                            playCurrentSong()
+                            return
+                        }
+                    }
+                    Log.w(TAG, "歌单为空或无效，使用默认铃声: playlistId=$playlistId")
+                    playDefaultSound()
+                }
+                else -> playDefaultSound()
             }
-            else -> {
-                playDefaultSound()
-            }
+        } finally {
+            isMusicLoading = false
         }
+    }
+
+    // 持久化当前歌单状态
+    private fun persistPlaylistState() {
+        alarmStateManager.persistPlaylist(applicationContext, musicList, currentMusicIndex)
     }
 
     private fun playCurrentSong() {
@@ -283,18 +295,14 @@ class AlarmPlaybackService : android.app.Service() {
             playDefaultSound()
             return
         }
-
         if (currentMusicIndex >= musicList.size) {
             currentMusicIndex = 0
         }
-
         val music = musicList[currentMusicIndex]
-        val isFirstSong = (currentMusicIndex == 0)
-        Log.i(TAG, "播放歌曲 (${currentMusicIndex + 1}/${musicList.size}): ${music.title} by ${music.artist}")
-
+        Log.i(TAG, "播放歌曲 (${currentMusicIndex + 1}/${musicList.size}): ${music.title}")
         broadcastPlaybackInfo(music.title, music.artist, currentMusicIndex, musicList.size)
-
-        playAudioFile(music.path, isSingleFile = false, isFirstSong = isFirstSong)
+        persistPlaylistState()
+        playAudioFile(music.path, isSingleFile = false, isFirstSong = false)
     }
 
     private fun broadcastPlaybackInfo(title: String, artist: String, index: Int, total: Int) {
@@ -312,6 +320,7 @@ class AlarmPlaybackService : android.app.Service() {
 
     private fun playAudioFile(path: String, isSingleFile: Boolean = false, isFirstSong: Boolean = false) {
         try {
+            cancelPrepareTimeout()
             val oldPlayer = mediaPlayer
             mediaPlayer = null
             oldPlayer?.release()
@@ -327,62 +336,134 @@ class AlarmPlaybackService : android.app.Service() {
                 prepareAsync()
 
                 setOnPreparedListener { mp ->
+                    cancelPrepareTimeout()
+                    consecutiveFailures = 0
                     val targetVolume = getActualVolume() * LOCAL_MUSIC_VOLUME_FACTOR
 
                     if (fadeInEnabled && isFirstSong) {
                         mp.setVolume(0.1f, 0.1f)
                         volumeManager.startFadeIn(mp, targetVolume, fadeInDuration * 1000L)
-                        Log.i(TAG, "开始播放(渐强): $path, 目标音量=$targetVolume")
                     } else {
                         mp.setVolume(targetVolume, targetVolume)
-                        Log.i(TAG, "开始播放: $path, 音量=$targetVolume")
                     }
-
                     mp.start()
                     updateNotification()
+                    Log.i(TAG, "开始播放: $path")
                 }
 
                 setOnCompletionListener {
+                    cancelPrepareTimeout()
                     volumeManager.stopFadeIn()
-
                     if (isSingleFile) {
-                        mediaPlayer?.let { player ->
-                            player.seekTo(0)
-                            player.start()
-                        }
+                        mediaPlayer?.let { it.seekTo(0); it.start() }
                     } else {
                         playNextSong()
                     }
                 }
 
                 setOnErrorListener { _, what, extra ->
-                    Log.e(TAG, "MediaPlayer错误: what=$what, extra=$extra")
-                    if (!isSingleFile && musicList.isNotEmpty()) {
-                        playNextSong()
-                    } else {
-                        playDefaultSound()
-                    }
+                    cancelPrepareTimeout()
+                    Log.e(TAG, "MediaPlayer错误: what=$what, extra=$extra, path=$path")
+                    consecutiveFailures++
+                    handlePlaybackFailure(isSingleFile)
                     true
                 }
             }
+
+            startPrepareTimeout(path, isSingleFile)
         } catch (e: IOException) {
             Log.e(TAG, "无法播放文件: $path, ${e.message}")
-            if (!isSingleFile && musicList.isNotEmpty()) {
-                playNextSong()
-            } else {
-                playDefaultSound()
-            }
+            consecutiveFailures++
+            handlePlaybackFailure(isSingleFile)
         } catch (e: Exception) {
             Log.e(TAG, "播放异常: ${e.message}", e)
+            consecutiveFailures++
+            handlePlaybackFailure(isSingleFile)
+        }
+    }
+
+    // 播放失败处理：切歌或播放默认铃声
+    private fun handlePlaybackFailure(isSingleFile: Boolean) {
+        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+            Log.w(TAG, "连续失败${consecutiveFailures}次，播放默认铃声")
+            playDefaultSound()
+            return
+        }
+        if (!isSingleFile && musicList.isNotEmpty()) {
+            playNextSong()
+        } else {
             playDefaultSound()
         }
     }
 
-    private fun playNextSong() {
-        currentMusicIndex++
-        if (currentMusicIndex >= musicList.size) {
-            currentMusicIndex = 0
+    // prepareAsync 超时保护
+    private fun startPrepareTimeout(path: String, isSingleFile: Boolean) {
+        prepareTimeoutJob = CoroutineScope(Dispatchers.Main).launch {
+            delay(PREPARE_TIMEOUT_MS)
+            Log.w(TAG, "播放准备超时: $path")
+            consecutiveFailures++
+            try { mediaPlayer?.stop() } catch (_: Exception) {}
+            handlePlaybackFailure(isSingleFile)
         }
+    }
+
+    private fun cancelPrepareTimeout() {
+        prepareTimeoutJob?.cancel()
+        prepareTimeoutJob = null
+    }
+
+    // 处理"下一首"操作：加载中忽略，空列表尝试恢复
+    private fun handleNextSong() {
+        if (isMusicLoading) {
+            Log.i(TAG, "歌单加载中，忽略下一首请求")
+            return
+        }
+        if (musicList.isEmpty()) {
+            tryRestorePlaylist()
+            if (musicList.isEmpty()) {
+                val savedPath = alarmStateManager.loadRingtonePath(applicationContext)
+                if (!savedPath.isNullOrEmpty()) {
+                    ringtonePath = savedPath
+                    playAudioFile(savedPath, isSingleFile = true, isFirstSong = false)
+                    return
+                }
+                playDefaultSound()
+                return
+            }
+        }
+        playNextSong()
+    }
+
+    // 尝试从持久化状态恢复歌单
+    private fun tryRestorePlaylist() {
+        val (savedList, savedIndex) = alarmStateManager.loadPlaylist(applicationContext)
+        if (savedList.isNotEmpty()) {
+            musicList = savedList
+            currentMusicIndex = savedIndex
+            playlistId = alarmStateManager.loadPlaylistId(applicationContext)
+            ringtonePath = alarmStateManager.loadRingtonePath(applicationContext)
+            Log.i(TAG, "从持久化恢复歌单: ${savedList.size}首, index=$savedIndex")
+            return
+        }
+        if (playlistId > 0) {
+            CoroutineScope(Dispatchers.IO).launch {
+                val songs = playlistRepository.getSongsInPlaylist(playlistId)
+                musicList = songs.mapNotNull { playlistRepository.getMusicById(it) }
+                if (musicList.isNotEmpty()) {
+                    currentMusicIndex = 0
+                    persistPlaylistState()
+                    Log.i(TAG, "从数据库恢复歌单: ${musicList.size}首")
+                }
+            }
+        }
+    }
+
+    private fun playNextSong() {
+        if (musicList.isEmpty()) {
+            playDefaultSound()
+            return
+        }
+        currentMusicIndex = (currentMusicIndex + 1) % musicList.size
         playCurrentSong()
     }
 
@@ -512,18 +593,19 @@ class AlarmPlaybackService : android.app.Service() {
 
     private fun stopAlarm() {
         Log.i(TAG, "停止闹钟")
-
         snoozeJob?.cancel()
         vibrateDelayJob?.cancel()
         snoozeVibrateJob?.cancel()
+        cancelPrepareTimeout()
         volumeManager.stopFadeIn()
         stopAlarmSound()
         stopVibration()
         isPlaying = false
+        isMusicLoading = false
+        consecutiveFailures = 0
         shouldVibrate = true
         vibrationPaused = false
         alarmStateManager.clearPersistedState(applicationContext)
-
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -634,6 +716,7 @@ class AlarmPlaybackService : android.app.Service() {
         super.onDestroy()
         instance = null
         Log.i(TAG, "AlarmPlaybackService onDestroy")
+        cancelPrepareTimeout()
         stopAlarmSound()
         stopVibration()
         releaseWakeLock()
@@ -641,6 +724,5 @@ class AlarmPlaybackService : android.app.Service() {
         vibrateDelayJob?.cancel()
         snoozeVibrateJob?.cancel()
         volumeManager.stopFadeIn()
-        alarmStateManager.clearPersistedState(applicationContext)
     }
 }

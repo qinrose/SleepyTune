@@ -88,9 +88,7 @@
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
-                <action android:name="com.example.sleepytune.ALARM_TRIGGER" />
-                <action android:name="com.example.sleepytune.ALARM_BACKUP" />
-                <action android:name="com.example.sleepytune.SNOOZE_TRIGGER" />
+                <action android:name="com.example.sleepytune.ALARM_TRIGGERED" />
             </intent-filter>
         </receiver>
         

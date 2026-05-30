@@ -131,8 +131,13 @@ class AlarmAlertActivity : ComponentActivity() {
         }
         
         Log.i(TAG, "闹钟提醒界面启动")
-        
+
         handleIntent(intent)
+        setContent {
+            SleepyTuneTheme {
+                AlarmAlertScreen(alarmId = alarmId, alarmLabel = alarmLabel, snoozeEnabled = snoozeEnabled)
+            }
+        }
     }
     
     override fun onNewIntent(intent: Intent) {
@@ -158,15 +163,14 @@ class AlarmAlertActivity : ComponentActivity() {
         handleIntent(intent)
     }
     
+    private var alarmId by mutableStateOf(-1L)
+    private var alarmLabel by mutableStateOf("")
+    private var snoozeEnabled by mutableStateOf(true)
+    
     private fun handleIntent(intent: Intent) {
-        val alarmId = intent.getLongExtra("alarm_id", -1L)
-        val alarmLabel = intent.getStringExtra("label") ?: ""
-
-        setContent {
-            SleepyTuneTheme {
-                AlarmAlertScreen(alarmId = alarmId, alarmLabel = alarmLabel)
-            }
-        }
+        alarmId = intent.getLongExtra("alarm_id", -1L)
+        alarmLabel = intent.getStringExtra("label") ?: ""
+        snoozeEnabled = intent.getBooleanExtra("snooze_enabled", true)
     }
 
     override fun onDestroy() {
@@ -180,7 +184,7 @@ class AlarmAlertActivity : ComponentActivity() {
 }
 
 @Composable
-fun AlarmAlertScreen(alarmId: Long, alarmLabel: String) {
+fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) {
     val context = LocalContext.current
 
     // 立即从跨进程状态读取初始歌曲信息
@@ -188,7 +192,6 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String) {
     var songArtist by remember { mutableStateOf("") }
     var isVibrating by remember { mutableStateOf(false) }
     var shouldVibrate by remember { mutableStateOf(true) }
-    var snoozeEnabled by remember { mutableStateOf(true) }
     
     // 时间相关状态
     var currentTime by remember { mutableStateOf("") }
@@ -205,7 +208,6 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String) {
         songArtist = prefs.getString("song_artist", "") ?: ""
         shouldVibrate = prefs.getBoolean("should_vibrate", true)
         isVibrating = prefs.getBoolean("is_vibrating", false)
-        snoozeEnabled = prefs.getBoolean("snooze_enabled", true)
     }
 
     DisposableEffect(Unit) {

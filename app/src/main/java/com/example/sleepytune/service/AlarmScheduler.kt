@@ -80,58 +80,12 @@ class AlarmScheduler @Inject constructor(
 
             alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
             Log.i(TAG, "已调度闹钟: id=${alarm.id}, 时间=${alarmTime.time}")
-
-            // 备用闹钟
-            if (!alarm.repeatDays.isNullOrEmpty()) {
-                scheduleBackupAlarm(alarm, alarmTime.timeInMillis)
-            }
         } catch (e: SecurityException) {
             Log.e(TAG, "调度闹钟失败(权限): ${e.message}")
             scheduleFallbackAlarm(alarmTime.timeInMillis, pendingIntent)
         } catch (e: Exception) {
             Log.e(TAG, "调度闹钟失败: ${e.message}", e)
             scheduleFallbackAlarm(alarmTime.timeInMillis, pendingIntent)
-        }
-    }
-
-    private fun scheduleBackupAlarm(alarm: Alarm, triggerTimeMs: Long) {
-        val backupIntent = Intent(context, AlarmReceiver::class.java).apply {
-            action = "com.example.sleepytune.ALARM_BACKUP"
-            putExtra("alarm_id", alarm.id)
-            putExtra("playlist_id", alarm.playlistId)
-            putExtra("ringtone_path", alarm.ringtone)
-            putExtra("vibrate", alarm.vibrate)
-            putExtra("vibrate_delay_minutes", alarm.vibrateDelayMinutes)
-            putExtra("volume", alarm.volume)
-            putExtra("label", alarm.label ?: "闹钟")
-            putExtra("shuffle_mode", alarm.shuffleMode)
-            putExtra("fade_in_enabled", alarm.fadeInEnabled)
-            putExtra("fade_in_duration", alarm.fadeInDuration)
-            putExtra("snooze_minutes", alarm.snoozeMinutes)
-            putExtra("snooze_enabled", alarm.snoozeEnabled)
-            putExtra("is_backup", true)
-        }
-
-        val backupPendingIntent = PendingIntent.getBroadcast(
-            context,
-            alarm.id.toInt() + 100000,
-            backupIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val backupCalendar = Calendar.getInstance().apply {
-            timeInMillis = triggerTimeMs
-            add(Calendar.DAY_OF_YEAR, 1)
-        }
-
-        try {
-            alarmManager.setExactAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                backupCalendar.timeInMillis,
-                backupPendingIntent
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "备用闹钟调度失败: ${e.message}")
         }
     }
 
@@ -149,7 +103,6 @@ class AlarmScheduler @Inject constructor(
 
     fun cancel(alarm: Alarm) {
         cancelPendingIntent(alarm.id.toInt())
-        cancelPendingIntent(alarm.id.toInt() + 100000)
         Log.i(TAG, "已取消闹钟: id=${alarm.id}")
     }
 

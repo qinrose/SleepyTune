@@ -55,9 +55,11 @@ class MainActivity : AppCompatActivity() {
         if (alarmStateManager.isAlarmPlayingCrossProcess(this)) {
             val alarmId = alarmStateManager.getAlarmIdCrossProcess(this)
             val alarmLabel = alarmStateManager.getAlarmLabelCrossProcess(this)
+            val snoozeEnabled = alarmStateManager.getSnoozeEnabledCrossProcess(this)
             startActivity(Intent(this, AlarmAlertActivity::class.java).apply {
                 putExtra("alarm_id", alarmId)
                 putExtra("label", alarmLabel)
+                putExtra("snooze_enabled", snoozeEnabled)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             })
             finish()
@@ -81,9 +83,11 @@ class MainActivity : AppCompatActivity() {
             lastAlarmAlertLaunchTime = currentTime
             val alarmId = alarmStateManager.getAlarmIdCrossProcess(this)
             val alarmLabel = alarmStateManager.getAlarmLabelCrossProcess(this)
+            val snoozeEnabled = alarmStateManager.getSnoozeEnabledCrossProcess(this)
             startActivity(Intent(this, AlarmAlertActivity::class.java).apply {
                 putExtra("alarm_id", alarmId)
                 putExtra("label", alarmLabel)
+                putExtra("snooze_enabled", snoozeEnabled)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             })
         }
