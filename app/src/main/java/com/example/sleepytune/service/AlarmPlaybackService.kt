@@ -166,6 +166,13 @@ class AlarmPlaybackService : android.app.Service() {
             }
         }
 
+        // 防止重复启动：立即设置标记，阻止后续调用
+        if (isPlaying) {
+            Log.i(TAG, "闹钟已在播放，忽略重复启动请求")
+            return START_NOT_STICKY
+        }
+        isPlaying = true  // 立即标记，防止竞态条件
+
         intent?.let { data ->
             alarmId = data.getLongExtra("alarm_id", -1L)
             playlistId = data.getLongExtra("playlist_id", 0L)
@@ -204,6 +211,16 @@ class AlarmPlaybackService : android.app.Service() {
         alarmStateManager.persistRingtonePath(applicationContext, ringtonePath)
         alarmStateManager.persistPlaylistId(applicationContext, playlistId)
         alarmStateManager.persistSnoozeEnabled(applicationContext, snoozeEnabled)
+        alarmStateManager.persistAlarmParams(
+            applicationContext,
+            volume = alarmVolume,
+            vibrate = shouldVibrate,
+            vibrateDelayMinutes = vibrateDelayMinutes,
+            shuffleMode = shuffleMode,
+            fadeInEnabled = fadeInEnabled,
+            fadeInDuration = fadeInDuration,
+            snoozeMinutes = snoozeMinutes
+        )
 
         // 使用 VibrationController 管理震动
         vibrationController.configure(shouldVibrate, vibrateDelayMinutes, snoozeMinutes)
@@ -267,10 +284,11 @@ class AlarmPlaybackService : android.app.Service() {
             currentMusicIndex = 0
         }
         val music = musicList[currentMusicIndex]
+        val isFirstSong = (currentMusicIndex == 0)  // 第一首歌才渐响
         Log.i(TAG, "播放歌曲 (${currentMusicIndex + 1}/${musicList.size}): ${music.title}")
         broadcastPlaybackInfo(music.title, music.artist, currentMusicIndex, musicList.size)
         persistPlaylistState()
-        playAudioFile(music.path, isSingleFile = false, isFirstSong = false)
+        playAudioFile(music.path, isSingleFile = false, isFirstSong = isFirstSong)
     }
 
     private fun broadcastPlaybackInfo(title: String, artist: String, index: Int, total: Int) {

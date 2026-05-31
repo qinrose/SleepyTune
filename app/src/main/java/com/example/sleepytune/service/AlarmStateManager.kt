@@ -71,6 +71,54 @@ class AlarmStateManager @Inject constructor() {
         }
     }
 
+    // 持久化闹钟参数（进程恢复用）
+    fun persistAlarmParams(
+        context: Context,
+        volume: Float,
+        vibrate: Boolean,
+        vibrateDelayMinutes: Int,
+        shuffleMode: Boolean,
+        fadeInEnabled: Boolean,
+        fadeInDuration: Int,
+        snoozeMinutes: Int
+    ) {
+        context.getSharedPreferences("alarm_params", Context.MODE_PRIVATE).edit().apply {
+            putFloat("volume", volume)
+            putBoolean("vibrate", vibrate)
+            putInt("vibrate_delay_minutes", vibrateDelayMinutes)
+            putBoolean("shuffle_mode", shuffleMode)
+            putBoolean("fade_in_enabled", fadeInEnabled)
+            putInt("fade_in_duration", fadeInDuration)
+            putInt("snooze_minutes", snoozeMinutes)
+            apply()
+        }
+    }
+
+    // 加载闹钟参数
+    fun loadAlarmParams(context: Context): AlarmParams {
+        val prefs = context.getSharedPreferences("alarm_params", Context.MODE_PRIVATE)
+        return AlarmParams(
+            volume = prefs.getFloat("volume", 1.0f),
+            vibrate = prefs.getBoolean("vibrate", true),
+            vibrateDelayMinutes = prefs.getInt("vibrate_delay_minutes", 0),
+            shuffleMode = prefs.getBoolean("shuffle_mode", false),
+            fadeInEnabled = prefs.getBoolean("fade_in_enabled", true),
+            fadeInDuration = prefs.getInt("fade_in_duration", 30),
+            snoozeMinutes = prefs.getInt("snooze_minutes", 5)
+        )
+    }
+
+    // 闹钟参数数据类
+    data class AlarmParams(
+        val volume: Float,
+        val vibrate: Boolean,
+        val vibrateDelayMinutes: Int,
+        val shuffleMode: Boolean,
+        val fadeInEnabled: Boolean,
+        val fadeInDuration: Int,
+        val snoozeMinutes: Int
+    )
+
     // 获取贪睡启用状态
     fun getSnoozeEnabledCrossProcess(context: Context): Boolean {
         return context.getSharedPreferences("alarm_state", Context.MODE_MULTI_PROCESS)

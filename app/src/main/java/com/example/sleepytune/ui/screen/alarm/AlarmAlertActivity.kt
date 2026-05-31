@@ -160,20 +160,31 @@ class AlarmAlertActivity : ComponentActivity() {
         val playlistId = playlistPrefs.getLong("playlist_id", 0L)
         val ringtonePath = playlistPrefs.getString("ringtone_path", null)
 
+        // 从参数持久化读取
+        val paramsPrefs = getSharedPreferences("alarm_params", MODE_PRIVATE)
+        val volume = paramsPrefs.getFloat("volume", 1.0f)
+        val vibrate = paramsPrefs.getBoolean("vibrate", true)
+        val vibrateDelayMinutes = paramsPrefs.getInt("vibrate_delay_minutes", 0)
+        val shuffleMode = paramsPrefs.getBoolean("shuffle_mode", false)
+        val fadeInEnabled = paramsPrefs.getBoolean("fade_in_enabled", true)
+        val fadeInDuration = paramsPrefs.getInt("fade_in_duration", 30)
+        val snoozeMinutes = paramsPrefs.getInt("snooze_minutes", 5)
+
         if (alarmId >= 0) {
-            Log.i(TAG, "恢复闹钟播放: alarmId=$alarmId, playlistId=$playlistId")
+            Log.i(TAG, "恢复闹钟播放: alarmId=$alarmId, playlistId=$playlistId, volume=$volume, vibrate=$vibrate")
             val serviceIntent = Intent(this, AlarmPlaybackService::class.java).apply {
                 putExtra("alarm_id", alarmId)
                 putExtra("playlist_id", playlistId)
                 putExtra("ringtone_path", ringtonePath)
                 putExtra("label", label)
                 putExtra("snooze_enabled", snoozeEnabled)
-                putExtra("vibrate", true)
-                putExtra("volume", 1.0f)
-                putExtra("shuffle_mode", false)
-                putExtra("fade_in_enabled", true)
-                putExtra("fade_in_duration", 30)
-                putExtra("snooze_minutes", 5)
+                putExtra("vibrate", vibrate)
+                putExtra("vibrate_delay_minutes", vibrateDelayMinutes)
+                putExtra("volume", volume)
+                putExtra("shuffle_mode", shuffleMode)
+                putExtra("fade_in_enabled", fadeInEnabled)
+                putExtra("fade_in_duration", fadeInDuration)
+                putExtra("snooze_minutes", snoozeMinutes)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 startForegroundService(serviceIntent)
@@ -312,7 +323,7 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
     }
 
     val btnColors = ButtonDefaults.buttonColors(containerColor = AlarmColorConfig.ButtonPrimary)
-    val btnShape = RoundedCornerShape(16.dp)
+    val btnShape = RoundedCornerShape(24.dp)  // 更圆润的现代风格
 
     // 使用 LayeredBox：底层背景延伸到状态栏，内容避开导航栏
     Box(modifier = Modifier.fillMaxSize()) {

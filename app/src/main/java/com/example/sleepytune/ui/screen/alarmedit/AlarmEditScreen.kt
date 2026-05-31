@@ -52,6 +52,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
@@ -114,6 +115,20 @@ fun AlarmEditScreen(navController: NavController, alarmId: Long?) {
                 },
                 actions = {
                     TextButton(onClick = {
+                        // 预览前先更新 ViewModel 设置，确保预览使用最新值
+                        viewModel.updateTime(hour, minute)
+                        viewModel.setPlaylist(selectedPlaylistId)
+                        viewModel.setRepeatDays(repeatDays)
+                        viewModel.setVibrate(vibrate)
+                        viewModel.setVibrateDelayMinutes(vibrateDelayMinutes)
+                        viewModel.setSnoozeEnabled(snoozeEnabled)
+                        viewModel.setSnoozeMinutes(snoozeMinutes)
+                        viewModel.setLabel(if (label.isBlank()) null else label)
+                        viewModel.setVolume(volume)
+                        viewModel.setShuffleMode(shuffleMode)
+                        viewModel.setFadeInEnabled(fadeInEnabled)
+                        viewModel.setFadeInDuration(fadeInDuration)
+                        
                         previewAlarm(
                             context = context,
                             playlistId = selectedPlaylistId,
@@ -546,15 +561,24 @@ private fun VolumeCard(
 @Composable
 private fun FlatCard(title: String, content: @Composable () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ),
+        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-            Spacer(modifier = Modifier.height(12.dp))
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(16.dp))
             content()
         }
     }

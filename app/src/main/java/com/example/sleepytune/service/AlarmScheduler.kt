@@ -53,7 +53,7 @@ class AlarmScheduler @Inject constructor(
             context,
             requestCode,
             intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_MUTABLE
         )
 
         val showIntent = Intent(context, com.example.sleepytune.MainActivity::class.java).apply {
@@ -63,7 +63,7 @@ class AlarmScheduler @Inject constructor(
             context,
             requestCode,
             showIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
         )
 
         val alarmClockInfo = AlarmManager.AlarmClockInfo(
@@ -107,17 +107,20 @@ class AlarmScheduler @Inject constructor(
     }
 
     private fun cancelPendingIntent(requestCode: Int) {
-        val intent = Intent(context, AlarmReceiver::class.java)
+        val intent = Intent(context, AlarmReceiver::class.java).apply {
+            action = AlarmReceiver.ACTION_ALARM_TRIGGERED
+        }
+        // 直接获取并取消，不使用 FLAG_NO_CREATE
+        // FLAG_IMMUTABLE | FLAG_UPDATE_CURRENT 可以匹配任何已存在的 PendingIntent
         val pendingIntent = PendingIntent.getBroadcast(
             context,
             requestCode,
             intent,
-            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
-        pendingIntent?.let {
-            alarmManager.cancel(it)
-            it.cancel()
-        }
+        alarmManager.cancel(pendingIntent)
+        pendingIntent.cancel()
+        Log.i(TAG, "已取消 PendingIntent: requestCode=$requestCode")
     }
 
     private fun calculateNextAlarmTime(alarm: Alarm): Calendar {
