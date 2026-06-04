@@ -138,7 +138,10 @@ class AlarmAlertActivity : ComponentActivity() {
         // 进程恢复检查：如果 Service 未运行，从持久化状态恢复启动
         if (AlarmPlaybackService.getInstance() == null) {
             Log.i(TAG, "Service 未运行，从持久化状态恢复")
-            restoreAlarmPlayback()
+            // 移到后台线程执行，避免阻塞主线程
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                restoreAlarmPlayback()
+            }
         }
 
         setContent {
@@ -151,6 +154,14 @@ class AlarmAlertActivity : ComponentActivity() {
     // 从持久化状态恢复闹钟播放
     private fun restoreAlarmPlayback() {
         val prefs = getSharedPreferences("alarm_state", MODE_MULTI_PROCESS)
+        
+        // 先检查闹钟是否在播放状态，如果不是则不恢复
+        val isAlarmPlaying = prefs.getBoolean("is_alarm_playing", false)
+        if (!isAlarmPlaying) {
+            Log.i(TAG, "闹钟未在播放状态，不恢复")
+            return
+        }
+        
         val alarmId = prefs.getLong("alarm_id", -1L)
         val label = prefs.getString("alarm_label", "闹钟") ?: "闹钟"
         val snoozeEnabled = prefs.getBoolean("snooze_enabled", true)
@@ -339,7 +350,6 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                         )
                     )
                 )
-                .noiseOverlay()
         )
         
         // 上层内容 - 只避开底部导航栏
@@ -589,25 +599,5 @@ private fun SongInfoRow(title: String, artist: String, onNextSong: () -> Unit) {
         ) {
             Icon(Icons.Default.SkipNext, contentDescription = "下一首", modifier = Modifier.size(24.dp))
         }
-    }
-}
-
-private fun Modifier.noiseOverlay(): Modifier = this.drawWithCache {
-    val w = size.width.toInt().coerceAtLeast(1)
-    val h = size.height.toInt().coerceAtLeast(1)
-    val step = 3
-    val noiseBitmap = androidx.compose.ui.graphics.ImageBitmap(w, h)
-    val canvas = androidx.compose.ui.graphics.Canvas(noiseBitmap)
-    val rng = java.util.Random(42)
-    val paint = Paint().apply { alpha = AlarmColorConfig.NoiseAlpha }
-    for (x in 0 until w step step) {
-        for (y in 0 until h step step) {
-            val gray = AlarmColorConfig.NoiseGrayMin + rng.nextInt(AlarmColorConfig.NoiseGrayMax - AlarmColorConfig.NoiseGrayMin + 1)
-            paint.color = Color(gray, gray, gray)
-            canvas.drawRect(androidx.compose.ui.geometry.Rect(x.toFloat(), y.toFloat(), (x + step).toFloat(), (y + step).toFloat()), paint)
-        }
-    }
-    onDrawBehind {
-        drawImage(noiseBitmap, alpha = AlarmColorConfig.NoiseAlpha)
     }
 }

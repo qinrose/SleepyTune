@@ -48,9 +48,4 @@ object AlarmColorConfig {
     // 动画颜色
     val PulseColor = Color(0xFF6B7FD7)         // 脉冲动画 - 星空蓝
     val RippleColor = Color(0x33FFFFFF)        // 涟漪动画 - 20% 白色
-
-    // 噪点效果 - 微妙纹理
-    val NoiseAlpha = 0.02f                     // 噪点透明度 - 更微妙
-    val NoiseGrayMin = 100                     // 噪点最小灰度值
-    val NoiseGrayMax = 160                     // 噪点最大灰度值
 }

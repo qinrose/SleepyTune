@@ -30,13 +30,13 @@ class AlarmStateManager @Inject constructor() {
     private val _songArtist = MutableStateFlow("")
     val songArtist: StateFlow<String> = _songArtist.asStateFlow()
 
-    // 跨进程持久化闹钟播放状态
+    // 跨进程持久化闹钟播放状态（使用commit确保立即写入）
     fun persistAlarmPlaying(context: Context, isPlaying: Boolean, alarmId: Long = -1L, label: String = "") {
         context.getSharedPreferences("alarm_state", Context.MODE_MULTI_PROCESS).edit().apply {
             putBoolean("is_alarm_playing", isPlaying)
             putLong("alarm_id", alarmId)
             putString("alarm_label", label)
-            apply()
+            commit()  // 同步写入，确保跨进程读取正确
         }
         _isAlarmPlaying.value = isPlaying
         _currentAlarmId.value = alarmId

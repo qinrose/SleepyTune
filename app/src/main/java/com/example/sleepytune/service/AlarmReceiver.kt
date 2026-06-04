@@ -118,8 +118,8 @@ class AlarmReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             val playlistRepository = hiltEntryPoint.playlistRepository()
 
-            // 预加载歌曲信息，立即传给 Activity
-            val (songTitle, songArtist) = loadSongInfo(ringtonePath, playlistId, playlistRepository)
+            // 预加载歌曲信息，立即传给 Activity（考虑 shuffleMode）
+            val (songTitle, songArtist) = loadSongInfo(ringtonePath, playlistId, shuffleMode, playlistRepository)
 
             val alertIntent = Intent(context, AlarmAlertActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
@@ -141,24 +141,20 @@ class AlarmReceiver : BroadcastReceiver() {
     }
 
     // 预加载歌曲信息（IO线程），避免Activity显示时歌曲名为空
+    // 注意：歌单模式下不预加载，因为 shuffleMode 的随机选择可能与 PlaylistManager 不一致
+    // 等 AlarmPlaybackService 发送广播更新正确的歌曲信息
     private suspend fun loadSongInfo(
         ringtonePath: String?,
         playlistId: Long,
+        shuffleMode: Boolean,
         playlistRepository: PlaylistRepository
     ): Pair<String, String> {
+        // 单铃声模式：直接解析文件名
         if (!ringtonePath.isNullOrEmpty()) {
             val fileName = ringtonePath.substringAfterLast("/").substringBeforeLast(".")
             return Pair(fileName, "闹钟铃声")
         }
-        if (playlistId > 0) {
-            val songIds = playlistRepository.getSongsInPlaylist(playlistId)
-            if (songIds.isNotEmpty()) {
-                val music = playlistRepository.getMusicById(songIds.first())
-                if (music != null) {
-                    return Pair(music.title, music.artist)
-                }
-            }
-        }
+        // 歌单模式：不预加载，等 Service 广播更新
         return Pair("", "")
     }
 
@@ -228,7 +224,7 @@ class AlarmReceiver : BroadcastReceiver() {
         // 预加载歌曲信息并启动 Activity
         CoroutineScope(Dispatchers.IO).launch {
             val playlistRepository = hiltEntryPoint.playlistRepository()
-            val (songTitle, songArtist) = loadSongInfo(ringtonePath, playlistId, playlistRepository)
+            val (songTitle, songArtist) = loadSongInfo(ringtonePath, playlistId, shuffleMode, playlistRepository)
 
             val alertIntent = Intent(context, AlarmAlertActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK

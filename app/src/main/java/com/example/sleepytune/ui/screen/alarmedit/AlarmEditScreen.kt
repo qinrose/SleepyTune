@@ -597,12 +597,15 @@ private fun previewAlarm(
     snoozeEnabled: Boolean,
     snoozeMinutes: Int
 ) {
+    // 先停止当前播放
     if (com.example.sleepytune.service.AlarmPlaybackService.isPlaying()) {
         com.example.sleepytune.service.AlarmPlaybackService.stopAlarm()
     }
     
-    val serviceIntent = android.content.Intent(context, com.example.sleepytune.service.AlarmPlaybackService::class.java).apply {
-        putExtra("alarm_id", -1L)
+    // 使用 AlarmReceiver 作为入口，与定时闹钟流程一致
+    val broadcastIntent = android.content.Intent(context, com.example.sleepytune.service.AlarmReceiver::class.java).apply {
+        action = com.example.sleepytune.service.AlarmReceiver.ACTION_ALARM_TRIGGERED
+        putExtra("alarm_id", -1L)  // 预览使用 -1 作为标记
         putExtra("playlist_id", playlistId)
         putExtra("vibrate", vibrate)
         putExtra("vibrate_delay_minutes", vibrateDelayMinutes)
@@ -615,17 +618,6 @@ private fun previewAlarm(
         putExtra("snooze_minutes", snoozeMinutes)
     }
     
-    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-        context.startForegroundService(serviceIntent)
-    } else {
-        context.startService(serviceIntent)
-    }
-    
-    val alertIntent = android.content.Intent(context, com.example.sleepytune.ui.screen.alarm.AlarmAlertActivity::class.java).apply {
-        flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
-        putExtra("alarm_id", -1L)
-        putExtra("label", label)
-        putExtra("snooze_enabled", snoozeEnabled)
-    }
-    context.startActivity(alertIntent)
+    // 发送广播，AlarmReceiver 会启动 Service 和 Activity
+    context.sendBroadcast(broadcastIntent)
 }
