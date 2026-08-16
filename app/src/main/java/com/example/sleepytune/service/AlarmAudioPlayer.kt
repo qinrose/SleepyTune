@@ -71,8 +71,7 @@ class AlarmAudioPlayer @Inject constructor(
         
         state.set(State.PREPARING)
         releaseInternal()
-        failureCount = 0
-        
+
         try {
             mediaPlayer = MediaPlayer().apply {
                 setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
@@ -113,6 +112,7 @@ class AlarmAudioPlayer @Inject constructor(
             applyVolume(config, fadeIn)
             mediaPlayer?.start()
             state.set(State.PLAYING)
+            failureCount = 0
             Log.i(TAG, "播放默认铃声")
         } catch (e: Exception) {
             Log.e(TAG, "默认铃声失败: ${e.message}")
@@ -126,6 +126,7 @@ class AlarmAudioPlayer @Inject constructor(
             setOnPreparedListener { mp ->
                 cancelTimeout()
                 state.set(State.PLAYING)
+                failureCount = 0
                 applyVolume(config, fadeIn)
                 mp.start()
                 Log.i(TAG, "播放开始")

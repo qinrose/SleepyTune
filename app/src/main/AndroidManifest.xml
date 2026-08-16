@@ -83,8 +83,7 @@
             android:name=".service.AlarmReceiver"
             android:exported="true"
             android:enabled="true"
-            android:directBootAware="true"
-            android:process=":alarm">
+            android:directBootAware="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
@@ -95,8 +94,7 @@
         <!-- 通知按钮交互广播接收器 -->
         <receiver
             android:name=".service.AlarmPlaybackReceiver"
-            android:exported="false"
-            android:process=":alarm">
+            android:exported="false">
             <intent-filter>
                 <action android:name="com.example.sleepytune.ACTION_STOP" />
                 <action android:name="com.example.sleepytune.ACTION_SNOOZE" />
@@ -112,8 +110,7 @@
             android:name=".service.AlarmPlaybackService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback"
-            android:stopWithTask="false"
-            android:process=":alarm" />
+            android:stopWithTask="false" />
         
         <!-- 桌面小部件 -->
         <receiver

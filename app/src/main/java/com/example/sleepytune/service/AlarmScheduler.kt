@@ -110,16 +110,17 @@ class AlarmScheduler @Inject constructor(
         val intent = Intent(context, AlarmReceiver::class.java).apply {
             action = AlarmReceiver.ACTION_ALARM_TRIGGERED
         }
-        // 直接获取并取消，不使用 FLAG_NO_CREATE
-        // FLAG_IMMUTABLE | FLAG_UPDATE_CURRENT 可以匹配任何已存在的 PendingIntent
+        // 与 schedule() 使用相同的 FLAG_MUTABLE，避免因 flag 不一致导致取消失败
         val pendingIntent = PendingIntent.getBroadcast(
             context,
             requestCode,
             intent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_NO_CREATE
         )
-        alarmManager.cancel(pendingIntent)
-        pendingIntent.cancel()
+        pendingIntent?.let {
+            alarmManager.cancel(it)
+            it.cancel()
+        }
         Log.i(TAG, "已取消 PendingIntent: requestCode=$requestCode")
     }
 

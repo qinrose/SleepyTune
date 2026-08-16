@@ -133,6 +133,15 @@ class NotificationHelper @Inject constructor(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        // 用户如果直接划掉通知，也应视为停止闹钟
+        val deleteIntent = Intent(context, AlarmPlaybackReceiver::class.java).apply {
+            action = ACTION_STOP
+        }
+        val deletePendingIntent = PendingIntent.getBroadcast(
+            context, 5, deleteIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         // 构建通知内容
         val contentText = buildString {
             if (isPlaying) {
@@ -173,6 +182,7 @@ class NotificationHelper @Inject constructor(
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(isPlaying)
+            .setDeleteIntent(deletePendingIntent)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setAutoCancel(false)
             .setSound(null)

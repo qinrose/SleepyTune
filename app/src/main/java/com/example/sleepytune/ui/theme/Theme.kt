@@ -72,6 +72,7 @@ private val LightColorScheme = lightColorScheme(
 fun SleepyTuneTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = false,
+    edgeToEdge: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
@@ -84,7 +85,7 @@ fun SleepyTuneTheme(
     }
 
     val view = LocalView.current
-    if (!view.isInEditMode) {
+    if (!view.isInEditMode && !edgeToEdge) {
         val window = (view.context as Activity).window
         val statusBarColor = if (darkTheme) {
             BackgroundDark.toArgb()

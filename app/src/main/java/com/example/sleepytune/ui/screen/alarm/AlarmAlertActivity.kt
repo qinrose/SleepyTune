@@ -9,21 +9,18 @@ import androidx.core.view.WindowCompat
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.Snooze
@@ -33,14 +30,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -54,7 +49,6 @@ import com.example.sleepytune.ui.theme.SleepyTuneTheme
 import com.example.sleepytune.ui.viewmodel.SettingsViewModel
 import java.text.SimpleDateFormat
 import java.util.*
-import kotlin.math.abs
 
 class AlarmAlertActivity : ComponentActivity() {
 
@@ -62,7 +56,7 @@ class AlarmAlertActivity : ComponentActivity() {
         private const val TAG = "AlarmAlertActivity"
         @Volatile private var isActivityRunning = false
         @Volatile private var shouldFinish = false
-        
+
         fun setShouldFinish(value: Boolean) {
             shouldFinish = value
         }
@@ -70,18 +64,17 @@ class AlarmAlertActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         // 检查是否应该关闭
         if (shouldFinish) {
             Log.i(TAG, "收到关闭标志，直接finish")
             finish()
             return
         }
-        
+
         // 防止重复启动
         if (isActivityRunning) {
             Log.i(TAG, "Activity已在运行，检查闹钟状态")
-            // 检查闹钟是否还在播放
             val prefs = getSharedPreferences("alarm_state", MODE_MULTI_PROCESS)
             val isPlaying = prefs.getBoolean("is_alarm_playing", false)
             if (!isPlaying) {
@@ -92,16 +85,13 @@ class AlarmAlertActivity : ComponentActivity() {
             return
         }
         isActivityRunning = true
-        
-        // 检查锁屏弹出设置
+
         val lockScreenPopupEnabled = SettingsViewModel.isLockScreenPopupEnabled(this)
-        
+
         enableEdgeToEdge()
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        
-        // 根据设置决定是否在锁屏上显示
+
         if (lockScreenPopupEnabled) {
-            // 设置锁屏显示标志
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
                 setShowWhenLocked(true)
                 setTurnScreenOn(true)
@@ -115,63 +105,56 @@ class AlarmAlertActivity : ComponentActivity() {
                 )
             }
         }
-        
-        // 显式设置导航栏和状态栏完全透明
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.insetsController?.apply {
                 setSystemBarsAppearance(0, android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS)
                 setSystemBarsAppearance(0, android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS)
             }
         }
-        
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             window.navigationBarColor = android.graphics.Color.TRANSPARENT
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             window.statusBarColor = android.graphics.Color.TRANSPARENT
         }
-        
+
         Log.i(TAG, "闹钟提醒界面启动")
 
         handleIntent(intent)
 
-        // 进程恢复检查：如果 Service 未运行，从持久化状态恢复启动
         if (AlarmPlaybackService.getInstance() == null) {
             Log.i(TAG, "Service 未运行，从持久化状态恢复")
-            // 移到后台线程执行，避免阻塞主线程
             android.os.Handler(android.os.Looper.getMainLooper()).post {
                 restoreAlarmPlayback()
             }
         }
 
         setContent {
-            SleepyTuneTheme {
+            SleepyTuneTheme(edgeToEdge = true) {
                 AlarmAlertScreen(alarmId = alarmId, alarmLabel = alarmLabel, snoozeEnabled = snoozeEnabled)
             }
         }
     }
 
-    // 从持久化状态恢复闹钟播放
     private fun restoreAlarmPlayback() {
         val prefs = getSharedPreferences("alarm_state", MODE_MULTI_PROCESS)
-        
-        // 先检查闹钟是否在播放状态，如果不是则不恢复
+
         val isAlarmPlaying = prefs.getBoolean("is_alarm_playing", false)
         if (!isAlarmPlaying) {
             Log.i(TAG, "闹钟未在播放状态，不恢复")
             return
         }
-        
+
         val alarmId = prefs.getLong("alarm_id", -1L)
         val label = prefs.getString("alarm_label", "闹钟") ?: "闹钟"
         val snoozeEnabled = prefs.getBoolean("snooze_enabled", true)
 
-        // 从歌单持久化读取
         val playlistPrefs = getSharedPreferences("alarm_playlist", MODE_PRIVATE)
         val playlistId = playlistPrefs.getLong("playlist_id", 0L)
         val ringtonePath = playlistPrefs.getString("ringtone_path", null)
 
-        // 从参数持久化读取
         val paramsPrefs = getSharedPreferences("alarm_params", MODE_PRIVATE)
         val volume = paramsPrefs.getFloat("volume", 1.0f)
         val vibrate = paramsPrefs.getBoolean("vibrate", true)
@@ -204,19 +187,17 @@ class AlarmAlertActivity : ComponentActivity() {
             }
         }
     }
-    
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         Log.i(TAG, "onNewIntent收到新Intent")
-        
-        // 检查是否应该关闭
+
         if (shouldFinish) {
             Log.i(TAG, "收到关闭标志，finish")
             finish()
             return
         }
-        
-        // 检查闹钟是否还在播放
+
         val prefs = getSharedPreferences("alarm_state", MODE_MULTI_PROCESS)
         val isPlaying = prefs.getBoolean("is_alarm_playing", false)
         if (!isPlaying) {
@@ -224,14 +205,14 @@ class AlarmAlertActivity : ComponentActivity() {
             finish()
             return
         }
-        
+
         handleIntent(intent)
     }
-    
+
     private var alarmId by mutableStateOf(-1L)
     private var alarmLabel by mutableStateOf("")
     private var snoozeEnabled by mutableStateOf(true)
-    
+
     private fun handleIntent(intent: Intent) {
         alarmId = intent.getLongExtra("alarm_id", -1L)
         alarmLabel = intent.getStringExtra("label") ?: ""
@@ -241,7 +222,7 @@ class AlarmAlertActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         isActivityRunning = false
-        shouldFinish = false  // 重置关闭标志
+        shouldFinish = false
         Log.i(TAG, "闹钟提醒界面销毁")
     }
 
@@ -252,21 +233,28 @@ class AlarmAlertActivity : ComponentActivity() {
 fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) {
     val context = LocalContext.current
 
-    // 立即从跨进程状态读取初始歌曲信息
     var songTitle by remember { mutableStateOf("") }
     var songArtist by remember { mutableStateOf("") }
     var isVibrating by remember { mutableStateOf(false) }
     var shouldVibrate by remember { mutableStateOf(true) }
-    
-    // 时间相关状态
+    var showVibrationControls by remember { mutableStateOf(false) }
+
     var currentTime by remember { mutableStateOf("") }
     var currentDate by remember { mutableStateOf("") }
     var currentWeekday by remember { mutableStateOf("") }
-    
-    // Activity引用
-    val activity = context as? AlarmAlertActivity
 
-    // 首次加载：优先从Intent读取（预加载模式，零延迟）
+    val activity = context as? AlarmAlertActivity
+    val view = LocalView.current
+
+    // 确保主题没有把状态栏/导航栏重新涂成不透明色，保持真正 edge-to-edge
+    SideEffect {
+        val window = (view.context as? android.app.Activity)?.window ?: return@SideEffect
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
+        WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
+        WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = false
+    }
+
     LaunchedEffect(Unit) {
         val intent = activity?.intent
         val intentTitle = intent?.getStringExtra(AlarmReceiver.EXTRA_SONG_TITLE) ?: ""
@@ -276,7 +264,6 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
             songTitle = intentTitle
             songArtist = intentArtist
         } else {
-            // 兜底：从 SharedPreferences 读取
             val prefs = context.getSharedPreferences("alarm_state", android.content.Context.MODE_MULTI_PROCESS)
             songTitle = prefs.getString("song_title", "") ?: ""
             songArtist = prefs.getString("song_artist", "") ?: ""
@@ -297,7 +284,6 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                             songArtist = it.getStringExtra(AlarmPlaybackService.EXTRA_SONG_ARTIST) ?: ""
                         }
                         AlarmPlaybackService.ACTION_SNOOZE_ENDED -> {
-                            // 贪睡结束，重新读取状态
                             val prefs = context.getSharedPreferences("alarm_state", android.content.Context.MODE_MULTI_PROCESS)
                             songTitle = prefs.getString("song_title", "") ?: ""
                             songArtist = prefs.getString("song_artist", "") ?: ""
@@ -305,7 +291,6 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                             isVibrating = prefs.getBoolean("is_vibrating", false)
                         }
                         AlarmPlaybackReceiver.ACTION_FINISH_ACTIVITY -> {
-                            // 收到关闭广播，结束Activity
                             activity?.finish()
                         }
                     }
@@ -317,11 +302,14 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
             addAction(AlarmPlaybackService.ACTION_SNOOZE_ENDED)
             addAction(AlarmPlaybackReceiver.ACTION_FINISH_ACTIVITY)
         }
-        context.registerReceiver(receiver, filter)
+        if (Build.VERSION.SDK_INT >= 33) {
+            context.registerReceiver(receiver, filter, android.content.Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            context.registerReceiver(receiver, filter)
+        }
         onDispose { context.unregisterReceiver(receiver) }
     }
-    
-    // 更新时间
+
     LaunchedEffect(Unit) {
         while (true) {
             val now = Calendar.getInstance()
@@ -333,76 +321,76 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
         }
     }
 
-    val btnColors = ButtonDefaults.buttonColors(containerColor = AlarmColorConfig.ButtonPrimary)
-    val btnShape = RoundedCornerShape(24.dp)  // 更圆润的现代风格
-
-    // 使用 LayeredBox：底层背景延伸到状态栏，内容避开导航栏
-    Box(modifier = Modifier.fillMaxSize()) {
-        // 底层背景 - 延伸到整个屏幕（包括状态栏）
-        Box(
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        AlarmColorConfig.BackgroundTop,
+                        AlarmColorConfig.BackgroundBottom
+                    )
+                )
+            )
+    ) {
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            AlarmColorConfig.BackgroundTop,
-                            AlarmColorConfig.BackgroundBottom
-                        )
-                    )
-                )
-        )
-        
-        // 上层内容 - 只避开底部导航栏
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 24.dp)
                 .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(horizontal = 28.dp, vertical = 24.dp),
+            horizontalAlignment = Alignment.Start
         ) {
-            // 时间显示区域 - 顶部
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(top = 48.dp)
-            ) {
-                Text(
-                    text = currentTime,
-                    fontSize = 64.sp,
-                    fontWeight = FontWeight.Light,
-                    color = AlarmColorConfig.TextPrimary,
-                    letterSpacing = 4.sp
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = currentDate,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Normal,
-                        color = AlarmColorConfig.TextSecondary
-                    )
-                    Text(
-                        text = "·",
-                        fontSize = 16.sp,
-                        color = AlarmColorConfig.TextSecondary
-                    )
-                    Text(
-                        text = currentWeekday,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Normal,
-                        color = AlarmColorConfig.TextSecondary
-                    )
-                }
-            }
-            
-            // 歌曲信息区域 - 偏上
-            Spacer(modifier = Modifier.weight(0.6f))
-            
+            // 杂志刊头
+            Text(
+                text = "SLEEPY TUNE",
+                fontFamily = FontFamily.Serif,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 4.sp,
+                color = AlarmColorConfig.TextAccent
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = alarmLabel.ifEmpty { "MORNING EDITION" },
+                fontFamily = FontFamily.Serif,
+                fontSize = 30.sp,
+                fontWeight = FontWeight.Bold,
+                color = AlarmColorConfig.TextPrimary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp, bottom = 4.dp)
+                    .height(1.dp)
+                    .background(AlarmColorConfig.CardBorder)
+            )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // 杂志封面式大时间
+            Text(
+                text = currentTime,
+                fontFamily = FontFamily.Serif,
+                fontSize = 96.sp,
+                fontWeight = FontWeight.Light,
+                letterSpacing = 2.sp,
+                color = AlarmColorConfig.TextPrimary
+            )
+            Text(
+                text = "$currentDate  ·  $currentWeekday",
+                fontFamily = FontFamily.Serif,
+                fontSize = 18.sp,
+                color = AlarmColorConfig.TextSecondary
+            )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // 歌曲信息卡片：克制、杂志专题式
             if (songTitle.isNotEmpty()) {
-                SongInfoRow(
+                MagazineSongCard(
                     title = songTitle,
                     artist = songArtist,
                     onNextSong = {
@@ -411,113 +399,124 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                         })
                     }
                 )
+                Spacer(modifier = Modifier.height(20.dp))
             }
-            
-            Spacer(modifier = Modifier.weight(1.4f))
 
-            // 按钮区域
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 48.dp)
-            ) {
-                // 根据贪睡启用状态决定按钮布局
-                if (snoozeEnabled) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxWidth()
+            // 主操作区
+            if (snoozeEnabled) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            context.startService(Intent(context, AlarmPlaybackService::class.java).apply {
+                                action = AlarmPlaybackService.ACTION_SNOOZE_ALARM
+                            })
+                            activity?.finish()
+                        },
+                        shape = RoundedCornerShape(18.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AlarmColorConfig.CardBorder),
+                        modifier = Modifier.weight(1f).height(54.dp)
                     ) {
-                        Button(
-                            onClick = {
-                                context.startService(Intent(context, AlarmPlaybackService::class.java).apply {
-                                    action = AlarmPlaybackService.ACTION_SNOOZE_ALARM
-                                })
-                                (context as? AlarmAlertActivity)?.finish()
-                            },
-                            shape = btnShape,
-                            colors = btnColors,
-                            modifier = Modifier.weight(1f).height(56.dp)
-                        ) {
-                            Icon(Icons.Default.Snooze, null, modifier = Modifier.size(20.dp), tint = AlarmColorConfig.ButtonText)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(stringResource(R.string.alarm_snooze), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = AlarmColorConfig.ButtonText)
-                        }
-
-                        Button(
-                            onClick = {
-                                AlarmAlertActivity.setShouldFinish(true)
-                                context.startService(Intent(context, AlarmPlaybackService::class.java).apply {
-                                    action = AlarmPlaybackService.ACTION_STOP_ALARM
-                                })
-                                (context as? AlarmAlertActivity)?.finish()
-                            },
-                            shape = btnShape,
-                            colors = ButtonDefaults.buttonColors(containerColor = AlarmColorConfig.ButtonDanger),
-                            modifier = Modifier.weight(1f).height(56.dp)
-                        ) {
-                            Icon(Icons.Default.Stop, null, modifier = Modifier.size(20.dp), tint = AlarmColorConfig.ButtonText)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(stringResource(R.string.alarm_stop_button), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AlarmColorConfig.ButtonText)
-                        }
+                        Icon(Icons.Default.Snooze, null, modifier = Modifier.size(20.dp), tint = AlarmColorConfig.TextPrimary)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.alarm_snooze), color = AlarmColorConfig.TextPrimary)
                     }
-                } else {
-                    // 未启用贪睡时，显示两倍长度的关闭按钮
+
                     Button(
                         onClick = {
                             AlarmAlertActivity.setShouldFinish(true)
                             context.startService(Intent(context, AlarmPlaybackService::class.java).apply {
                                 action = AlarmPlaybackService.ACTION_STOP_ALARM
                             })
-                            (context as? AlarmAlertActivity)?.finish()
+                            activity?.finish()
                         },
-                        shape = btnShape,
+                        shape = RoundedCornerShape(18.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = AlarmColorConfig.ButtonDanger),
-                        modifier = Modifier.fillMaxWidth().height(56.dp)
+                        modifier = Modifier.weight(1.4f).height(54.dp)
                     ) {
-                        Icon(Icons.Default.Stop, null, modifier = Modifier.size(20.dp), tint = AlarmColorConfig.ButtonText)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(stringResource(R.string.alarm_stop_button), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AlarmColorConfig.ButtonText)
+                        Icon(Icons.Default.Stop, null, modifier = Modifier.size(20.dp), tint = Color.White)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.alarm_stop_button), color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 }
+            } else {
+                Button(
+                    onClick = {
+                        AlarmAlertActivity.setShouldFinish(true)
+                        context.startService(Intent(context, AlarmPlaybackService::class.java).apply {
+                            action = AlarmPlaybackService.ACTION_STOP_ALARM
+                        })
+                        activity?.finish()
+                    },
+                    shape = RoundedCornerShape(18.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = AlarmColorConfig.ButtonDanger),
+                    modifier = Modifier.fillMaxWidth().height(54.dp)
+                ) {
+                    Icon(Icons.Default.Stop, null, modifier = Modifier.size(20.dp), tint = Color.White)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(stringResource(R.string.alarm_stop_button), color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            }
 
-                // 只有在启用了震动且正在震动时才显示震动按钮
-                if (shouldVibrate && isVibrating) {
-                    Spacer(modifier = Modifier.height(12.dp))
+            // 震动控制收纳为“更多”，避免主界面复杂
+            if (shouldVibrate && isVibrating) {
+                Spacer(modifier = Modifier.height(8.dp))
+                TextButton(
+                    onClick = { showVibrationControls = !showVibrationControls },
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                ) {
+                    Icon(
+                        if (showVibrationControls) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = AlarmColorConfig.TextSecondary
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        if (showVibrationControls) stringResource(R.string.alarm_pause_vibrate) else "震动控制",
+                        color = AlarmColorConfig.TextSecondary
+                    )
+                }
+                AnimatedVisibility(
+                    visible = showVibrationControls,
+                    enter = fadeIn() + slideInVertically { it / 2 },
+                    exit = fadeOut() + slideOutVertically { it / 2 }
+                ) {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
                     ) {
-                        Button(
+                        OutlinedButton(
                             onClick = {
                                 context.startService(Intent(context, AlarmPlaybackService::class.java).apply {
                                     action = AlarmPlaybackService.ACTION_PAUSE_VIBRATE
                                 })
                                 isVibrating = false
                             },
-                            shape = btnShape,
-                            colors = ButtonDefaults.buttonColors(containerColor = AlarmColorConfig.ButtonSecondary),
-                            modifier = Modifier.weight(1f).height(56.dp)
+                            shape = RoundedCornerShape(16.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, AlarmColorConfig.CardBorder),
+                            modifier = Modifier.weight(1f).height(44.dp)
                         ) {
-                            Icon(Icons.Default.Pause, null, modifier = Modifier.size(20.dp), tint = AlarmColorConfig.ButtonText)
+                            Icon(Icons.Default.Pause, null, modifier = Modifier.size(18.dp), tint = AlarmColorConfig.TextSecondary)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text(stringResource(R.string.alarm_pause_vibrate), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = AlarmColorConfig.ButtonText)
+                            Text(stringResource(R.string.alarm_pause_vibrate), color = AlarmColorConfig.TextSecondary, fontSize = 13.sp)
                         }
-
-                        Button(
+                        OutlinedButton(
                             onClick = {
                                 context.startService(Intent(context, AlarmPlaybackService::class.java).apply {
                                     action = AlarmPlaybackService.ACTION_STOP_VIBRATE
                                 })
                                 isVibrating = false
                             },
-                            shape = btnShape,
-                            colors = ButtonDefaults.buttonColors(containerColor = AlarmColorConfig.ButtonSecondary),
-                            modifier = Modifier.weight(1f).height(56.dp)
+                            shape = RoundedCornerShape(16.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, AlarmColorConfig.CardBorder),
+                            modifier = Modifier.weight(1f).height(44.dp)
                         ) {
-                            Icon(Icons.Default.Vibration, null, modifier = Modifier.size(20.dp), tint = AlarmColorConfig.ButtonText)
+                            Icon(Icons.Default.Vibration, null, modifier = Modifier.size(18.dp), tint = AlarmColorConfig.TextSecondary)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text(stringResource(R.string.alarm_stop_vibrate), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = AlarmColorConfig.ButtonText)
+                            Text(stringResource(R.string.alarm_stop_vibrate), color = AlarmColorConfig.TextSecondary, fontSize = 13.sp)
                         }
                     }
                 }
@@ -527,77 +526,55 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
 }
 
 @Composable
-private fun SongInfoRow(title: String, artist: String, onNextSong: () -> Unit) {
-    var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
-    val containerWidth = with(LocalDensity.current) { 260.dp.toPx() }
-    val textWidth = layoutResult?.size?.width?.toFloat() ?: 0f
-    val isOverflow = textWidth > containerWidth
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
+private fun MagazineSongCard(title: String, artist: String, onNextSong: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = AlarmColorConfig.CardBackground,
+        border = androidx.compose.foundation.BorderStroke(1.dp, AlarmColorConfig.CardBorder),
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(28.dp),
-                contentAlignment = Alignment.CenterStart
-            ) {
-                if (isOverflow) {
-                    val transition = rememberInfiniteTransition(label = "marquee")
-                    val offset by transition.animateFloat(
-                        initialValue = 0f,
-                        targetValue = -abs(textWidth - containerWidth),
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(durationMillis = 4000, delayMillis = 800, easing = LinearEasing),
-                            repeatMode = RepeatMode.Reverse
-                        ),
-                        label = "offset"
-                    )
+        Row(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "NOW PLAYING",
+                    fontFamily = FontFamily.Serif,
+                    fontSize = 11.sp,
+                    letterSpacing = 2.sp,
+                    color = AlarmColorConfig.TextAccent
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = title,
+                    fontFamily = FontFamily.Serif,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = AlarmColorConfig.TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (artist.isNotEmpty()) {
                     Text(
-                        text = title,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = AlarmColorConfig.TextPrimary,
+                        text = artist,
+                        fontSize = 14.sp,
+                        color = AlarmColorConfig.TextSecondary,
                         maxLines = 1,
-                        softWrap = false,
-                        modifier = Modifier.offset(x = with(LocalDensity.current) { offset.toDp() }),
-                        onTextLayout = { layoutResult = it }
-                    )
-                } else {
-                    Text(
-                        text = title,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = AlarmColorConfig.TextPrimary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        onTextLayout = { layoutResult = it }
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = artist,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Normal,
-                color = AlarmColorConfig.TextSecondary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        FloatingActionButton(
-            onClick = onNextSong,
-            shape = CircleShape,
-            containerColor = AlarmColorConfig.ButtonPrimary,
-            contentColor = AlarmColorConfig.ButtonText,
-            modifier = Modifier.size(48.dp)
-        ) {
-            Icon(Icons.Default.SkipNext, contentDescription = "下一首", modifier = Modifier.size(24.dp))
+            Spacer(modifier = Modifier.width(12.dp))
+            FloatingActionButton(
+                onClick = onNextSong,
+                shape = RoundedCornerShape(16.dp),
+                containerColor = AlarmColorConfig.ButtonPrimary,
+                contentColor = AlarmColorConfig.TextPrimary,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(Icons.Default.SkipNext, contentDescription = "下一首", modifier = Modifier.size(22.dp))
+            }
         }
     }
 }

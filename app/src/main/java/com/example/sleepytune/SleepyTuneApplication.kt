@@ -68,6 +68,9 @@ class SleepyTuneApplication : Application() {
             Log.e(TAG, "崩溃报告器初始化失败: ${e.message}")
         }
 
+        // 每次启动都重新核对闹钟调度，避免因重启/强停/厂商省电策略导致漏响
+        rescheduleAlarmsAfterBoot()
+
         Log.i(TAG, "SleepyTuneApplication onCreate 完成, 进程=${android.os.Process.myPid()}")
     }
 
