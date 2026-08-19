@@ -87,7 +87,11 @@
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
                 <action android:name="com.example.sleepytune.ALARM_TRIGGERED" />
+                <action android:name="com.example.sleepytune.SELF_HEAL" />
             </intent-filter>
         </receiver>
         

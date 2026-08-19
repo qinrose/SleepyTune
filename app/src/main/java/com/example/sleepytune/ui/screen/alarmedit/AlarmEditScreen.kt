@@ -17,9 +17,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Card
@@ -304,7 +304,7 @@ private fun PlaylistCard(
                     color = MaterialTheme.colorScheme.secondary)
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    PlayModeItem(Icons.Default.Sort, stringResource(R.string.playback_sequential), !shuffleMode) { onShuffleModeChanged(false) }
+                    PlayModeItem(Icons.AutoMirrored.Filled.Sort, stringResource(R.string.playback_sequential), !shuffleMode) { onShuffleModeChanged(false) }
                     PlayModeItem(Icons.Default.Shuffle, stringResource(R.string.playback_shuffle), shuffleMode) { onShuffleModeChanged(true) }
                 }
             }

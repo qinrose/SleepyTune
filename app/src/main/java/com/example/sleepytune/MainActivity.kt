@@ -5,6 +5,10 @@ import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -19,7 +23,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -35,7 +38,6 @@ import com.example.sleepytune.ui.screen.settings.LanguageSettingsScreen
 import com.example.sleepytune.ui.screen.settings.PermissionGuideScreen
 import com.example.sleepytune.ui.screen.settings.SettingsScreen
 import com.example.sleepytune.ui.theme.SleepyTuneTheme
-import com.example.sleepytune.ui.viewmodel.ThemeViewModel
 import com.example.sleepytune.utils.PermissionUtils
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -96,14 +98,11 @@ class MainActivity : AppCompatActivity() {
 
 @Composable
 fun MainApp() {
-    val themeViewModel: ThemeViewModel = hiltViewModel()
-    val themeMode by themeViewModel.themeMode.collectAsState()
-    
-    // 根据主题模式确定是否使用深色主题
-    val darkTheme = when (themeMode) {
-        ThemeViewModel.ThemeMode.LIGHT -> false
-        ThemeViewModel.ThemeMode.DARK -> true
-        ThemeViewModel.ThemeMode.AUTO -> isSystemInDarkTheme()
+    // 使用 AppCompatDelegate 直接判定主题，避免 ViewModel 在 Activity 重建后持有旧值
+    val darkTheme = when (AppCompatDelegate.getDefaultNightMode()) {
+        AppCompatDelegate.MODE_NIGHT_NO -> false
+        AppCompatDelegate.MODE_NIGHT_YES -> true
+        else -> isSystemInDarkTheme() // MODE_NIGHT_FOLLOW_SYSTEM
     }
 
     SleepyTuneTheme(darkTheme = darkTheme) {
@@ -132,6 +131,9 @@ fun MainAppContent() {
     }
 }
 
+// 统一导航过渡动画：所有页面淡入淡出，消除不一的滑入/浮现效果
+private const val NAV_ANIM_DURATION = 250
+
 @Composable
 fun MainScreen() {
     val navController = rememberNavController()
@@ -142,7 +144,7 @@ fun MainScreen() {
         bottomBar = {
             NavigationBar(
                 containerColor = MaterialTheme.colorScheme.surface,
-                tonalElevation = 0.dp
+                tonalElevation = 3.dp
             ) {
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = navBackStackEntry?.destination?.route
@@ -189,41 +191,40 @@ fun MainScreen() {
             startDestination = "alarmList",
             modifier = Modifier.padding(padding)
         ) {
-            composable("alarmList") {
+            // 统一淡入淡出过渡（所有页面一致，消除滑入/浮现不统一的问题）
+            fun navAnim() = fadeIn(tween(NAV_ANIM_DURATION))
+            fun navAnimOut() = fadeOut(tween(NAV_ANIM_DURATION))
+
+            composable("alarmList", enterTransition = { navAnim() }, exitTransition = { navAnimOut() }, popEnterTransition = { navAnim() }, popExitTransition = { navAnimOut() }) {
                 AlarmListScreen(navController = navController)
             }
-            composable("alarmEdit") {
+            composable("playlist", enterTransition = { navAnim() }, exitTransition = { navAnimOut() }, popEnterTransition = { navAnim() }, popExitTransition = { navAnimOut() }) {
+                PlaylistScreen(navController = navController)
+            }
+            composable("musicLibrary", enterTransition = { navAnim() }, exitTransition = { navAnimOut() }, popEnterTransition = { navAnim() }, popExitTransition = { navAnimOut() }) {
+                MusicLibraryScreen(navController = navController)
+            }
+            composable("settings", enterTransition = { navAnim() }, exitTransition = { navAnimOut() }, popEnterTransition = { navAnim() }, popExitTransition = { navAnimOut() }) {
+                SettingsScreen(navController = navController)
+            }
+            composable("alarmEdit", enterTransition = { navAnim() }, exitTransition = { navAnimOut() }, popEnterTransition = { navAnim() }, popExitTransition = { navAnimOut() }) {
                 AlarmEditScreen(navController = navController, alarmId = null)
             }
-            composable("alarmEdit/{alarmId}") { backStackEntry ->
+            composable("alarmEdit/{alarmId}", enterTransition = { navAnim() }, exitTransition = { navAnimOut() }, popEnterTransition = { navAnim() }, popExitTransition = { navAnimOut() }) { backStackEntry ->
                 val alarmId = backStackEntry.arguments?.getString("alarmId")?.toLongOrNull()
                 AlarmEditScreen(navController = navController, alarmId = alarmId)
             }
-            composable("playlist") {
-                PlaylistScreen(navController = navController)
-            }
-            composable("playlist/{playlistId}") { backStackEntry ->
+            composable("playlist/{playlistId}", enterTransition = { navAnim() }, exitTransition = { navAnimOut() }, popEnterTransition = { navAnim() }, popExitTransition = { navAnimOut() }) { backStackEntry ->
                 val playlistId = backStackEntry.arguments?.getString("playlistId")?.toLongOrNull()
                 if (playlistId != null) {
                     PlaylistDetailScreen(navController = navController, playlistId = playlistId)
                 }
             }
-            composable("musicLibrary") {
-                MusicLibraryScreen(navController = navController)
+            composable("languageSettings", enterTransition = { navAnim() }, exitTransition = { navAnimOut() }, popEnterTransition = { navAnim() }, popExitTransition = { navAnimOut() }) {
+                LanguageSettingsScreen(onNavigateBack = { navController.popBackStack() })
             }
-            composable("settings") {
-                SettingsScreen(navController = navController)
-            }
-            composable("languageSettings") {
-                LanguageSettingsScreen(
-                    onNavigateBack = { navController.popBackStack() }
-                )
-            }
-            composable("permissionGuide") {
-                PermissionGuideScreen(
-                    onNavigateBack = { navController.popBackStack() },
-                    onAllPermissionsGranted = { navController.popBackStack() }
-                )
+            composable("permissionGuide", enterTransition = { navAnim() }, exitTransition = { navAnimOut() }, popEnterTransition = { navAnim() }, popExitTransition = { navAnimOut() }) {
+                PermissionGuideScreen(onNavigateBack = { navController.popBackStack() }, onAllPermissionsGranted = { navController.popBackStack() })
             }
         }
     }

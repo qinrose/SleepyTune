@@ -18,7 +18,9 @@ class AlarmReceiver : BroadcastReceiver() {
         private const val TAG = "AlarmReceiver"
 
         const val ACTION_ALARM_TRIGGERED = "com.example.sleepytune.ALARM_TRIGGERED"
+        const val ACTION_SELF_HEAL = "com.example.sleepytune.SELF_HEAL"
         const val ACTION_BOOT_COMPLETED = "android.intent.action.BOOT_COMPLETED"
+        const val ACTION_MY_PACKAGE_REPLACED = "android.intent.action.MY_PACKAGE_REPLACED"
         const val ACTION_TIME_SET = "android.intent.action.TIME_SET"
         const val ACTION_TIMEZONE_CHANGED = "android.intent.action.TIMEZONE_CHANGED"
 
@@ -55,10 +57,22 @@ class AlarmReceiver : BroadcastReceiver() {
             ACTION_BOOT_COMPLETED -> {
                 Log.i(TAG, "System reboot, rescheduling all alarms")
                 rescheduleAllAlarms(alarmScheduler, alarmRepository)
+                alarmScheduler.scheduleSelfHealing()
+            }
+            ACTION_MY_PACKAGE_REPLACED -> {
+                Log.i(TAG, "App updated, restoring all alarms")
+                rescheduleAllAlarms(alarmScheduler, alarmRepository)
+                alarmScheduler.scheduleSelfHealing()
             }
             ACTION_TIME_SET, ACTION_TIMEZONE_CHANGED -> {
                 Log.i(TAG, "Time/timezone changed, rescheduling all alarms")
                 rescheduleAllAlarms(alarmScheduler, alarmRepository)
+                alarmScheduler.scheduleSelfHealing()
+            }
+            ACTION_SELF_HEAL -> {
+                Log.i(TAG, "自愈心跳：重新核对所有闹钟调度")
+                rescheduleAllAlarms(alarmScheduler, alarmRepository)
+                alarmScheduler.scheduleSelfHealing()
             }
             ACTION_ALARM_TRIGGERED, "com.example.sleepytune.ALARM_BACKUP" -> {
                 handleAlarmTriggered(context, intent, alarmScheduler, alarmRepository, hiltEntryPoint)
@@ -137,6 +151,8 @@ class AlarmReceiver : BroadcastReceiver() {
             if (alarm != null && !alarm.repeatDays.isNullOrEmpty()) {
                 alarmScheduler.schedule(alarm)
             }
+            // 每天自动核对一遍所有调度，防止 OEM 偷偷清掉闹钟
+            alarmScheduler.scheduleSelfHealing()
         }
     }
 

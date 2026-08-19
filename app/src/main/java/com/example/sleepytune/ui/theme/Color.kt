@@ -33,19 +33,19 @@ val TertiaryContainerDark = Color(0xFF242830)
 val OnTertiaryContainerLight = Color(0xFF3A4A58)
 val OnTertiaryContainerDark = Color(0xFFC8D8E8)
 
-// 深色模式背景 - 深蓝黑（护眼有氛围）
-val BackgroundDark = Color(0xFF0A0E1A)   // 深蓝黑 - 主背景
-val SurfaceDark = Color(0xFF12161E)      // 深蓝灰 - 表面
-val SurfaceDarkVariant = Color(0xFF1E2436) // 深蓝灰变体 - 卡片
-val OnBackgroundDark = Color(0xFFE8EAF0)  // 浅灰白 - 主文字
-val OnSurfaceDark = Color(0xFFB8BAC0)     // 柔灰 - 次文字
+// 深色模式背景 - 深夜纸墨（护眼有氛围）
+val BackgroundDark = Color(0xFF161310)   // 深墨 - 主背景
+val SurfaceDark = Color(0xFF1E1A15)      // 深纸张 - 表面
+val SurfaceDarkVariant = Color(0xFF29231B) // 深纸变体 - 卡片
+val OnBackgroundDark = Color(0xFFF2EADB)  // 暖纸白 - 主文字
+val OnSurfaceDark = Color(0xFFC9BFAE)     // 柔纸灰 - 次文字
 
-// 浅色模式背景 - 柔白蓝
-val BackgroundLight = Color(0xFFF8FAFC)   // 柔白 - 主背景
+// 浅色模式背景 - 暖稿纸
+val BackgroundLight = Color(0xFFF6F1E7)   // 米白稿纸 - 主背景
 val SurfaceLight = Color(0xFFFFFFFF)      // 纯白 - 表面
-val SurfaceLightVariant = Color(0xFFF0F4F8) // 浅蓝灰 - 卡片
-val OnBackgroundLight = Color(0xFF1A1E2E)  // 深蓝黑 - 主文字
-val OnSurfaceLight = Color(0xFF3A3E4E)     // 深灰蓝 - 次文字
+val SurfaceLightVariant = Color(0xFFEDE6D8) // 浅米 - 卡片
+val OnBackgroundLight = Color(0xFF201A13)  // 墨色 - 主文字
+val OnSurfaceLight = Color(0xFF3B3227)     // 深灰褐 - 次文字
 
 // 错误色 - 柔和珊瑚红
 val Error = Color(0xFFE87878)

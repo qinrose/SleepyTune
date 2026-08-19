@@ -7,7 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -28,6 +28,7 @@ import com.example.sleepytune.data.local.entity.Alarm
 import com.example.sleepytune.ui.viewmodel.AlarmListViewModel
 import com.example.sleepytune.ui.viewmodel.TimeFormatViewModel
 import com.example.sleepytune.utils.TimeFormatHelper
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,15 +41,23 @@ fun AlarmListScreen(navController: NavController) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { navController.navigate("alarmEdit") },
-                icon = { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp)) },
-                text = { Text(stringResource(R.string.alarm_add), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium) },
-                shape = RoundedCornerShape(16.dp),
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 0.dp)
-            )
+            // 浮动按钮：缩放动画入场
+            var fabVisible by remember { mutableStateOf(false) }
+            LaunchedEffect(Unit) { fabVisible = true }
+            AnimatedVisibility(
+                visible = fabVisible,
+                enter = scaleIn(animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)) + fadeIn(tween(200))
+            ) {
+                ExtendedFloatingActionButton(
+                    onClick = { navController.navigate("alarmEdit") },
+                    icon = { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                    text = { Text(stringResource(R.string.alarm_add), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium) },
+                    shape = RoundedCornerShape(16.dp),
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 0.dp)
+                )
+            }
         }
     ) { paddingValues ->
         if (alarms.isEmpty()) {
@@ -78,14 +87,27 @@ fun AlarmListScreen(navController: NavController) {
                     }
                 }
 
-                items(items = alarms, key = { it.id }) { alarm ->
-                    AlarmCard(
-                        alarm = alarm,
-                        timeFormat = timeFormat,
-                        onToggle = { viewModel.toggleAlarm(alarm) },
-                        onDelete = { viewModel.deleteAlarm(alarm) },
-                        onClick = { navController.navigate("alarmEdit/${alarm.id}") }
-                    )
+                itemsIndexed(items = alarms, key = { _, alarm -> alarm.id }) { index, alarm ->
+                    var itemVisible by remember { mutableStateOf(false) }
+                    LaunchedEffect(Unit) {
+                        delay(index * 30L)
+                        itemVisible = true
+                    }
+                    AnimatedVisibility(
+                        visible = itemVisible,
+                        enter = slideInVertically(
+                            initialOffsetY = { it / 4 },
+                            animationSpec = tween(300, easing = FastOutSlowInEasing)
+                        ) + fadeIn(tween(300))
+                    ) {
+                        AlarmCard(
+                            alarm = alarm,
+                            timeFormat = timeFormat,
+                            onToggle = { viewModel.toggleAlarm(alarm) },
+                            onDelete = { viewModel.deleteAlarm(alarm) },
+                            onClick = { navController.navigate("alarmEdit/${alarm.id}") }
+                        )
+                    }
                 }
             }
         }

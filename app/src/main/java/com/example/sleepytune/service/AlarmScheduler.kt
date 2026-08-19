@@ -21,6 +21,7 @@ class AlarmScheduler @Inject constructor(
     companion object {
         private const val TAG = "AlarmScheduler"
         private const val REQUEST_CODE_BASE = 1000
+        private const val REQUEST_CODE_SELF_HEAL = 987654
     }
 
     fun schedule(alarm: Alarm) {
@@ -87,6 +88,9 @@ class AlarmScheduler @Inject constructor(
             Log.e(TAG, "调度闹钟失败: ${e.message}", e)
             scheduleFallbackAlarm(alarmTime.timeInMillis, pendingIntent)
         }
+
+        // 每天自愈一次，重新核对所有闹钟，防止 OEM 悄悄清掉调度
+        scheduleSelfHealing()
     }
 
     private fun scheduleFallbackAlarm(triggerTimeMs: Long, pendingIntent: PendingIntent) {
@@ -98,6 +102,33 @@ class AlarmScheduler @Inject constructor(
             )
         } catch (e: Exception) {
             alarmManager.set(AlarmManager.RTC_WAKEUP, triggerTimeMs, pendingIntent)
+        }
+    }
+
+    // 每天一次的“自愈心跳”：即便用户几天不打开 App，只要系统没重启/没强停，
+    // 也会周期性把所有启用的闹钟重新注册一遍
+    fun scheduleSelfHealing() {
+        try {
+            val intent = Intent(context, AlarmReceiver::class.java).apply {
+                action = AlarmReceiver.ACTION_SELF_HEAL
+            }
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                REQUEST_CODE_SELF_HEAL,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+            )
+            // 12 小时后先自愈一次，之后每天一次
+            val firstTrigger = System.currentTimeMillis() + 12 * 60 * 60 * 1000L
+            alarmManager.setInexactRepeating(
+                AlarmManager.RTC_WAKEUP,
+                firstTrigger,
+                AlarmManager.INTERVAL_DAY,
+                pendingIntent
+            )
+            Log.i(TAG, "已安排每日自愈心跳")
+        } catch (e: Exception) {
+            Log.w(TAG, "安排自愈心跳失败: ${e.message}")
         }
     }
 

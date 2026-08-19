@@ -30,11 +30,11 @@ class SleepyTuneApplication : Application() {
                     ThemeMode.DARK -> AppCompatDelegate.MODE_NIGHT_YES
                     ThemeMode.AUTO -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
                 }
-                // 保存设置
+                // 保存设置（使用 commit 同步写入，确保 Activity 重建前已持久化）
                 app.getSharedPreferences("theme_settings", MODE_PRIVATE)
                     .edit()
                     .putString("theme_mode", mode.name)
-                    .apply()
+                    .commit()
                 // 应用主题 - 这会立即生效并触发生命周期重绘
                 AppCompatDelegate.setDefaultNightMode(nightMode)
                 Log.i(TAG, "主题已切换: $mode")

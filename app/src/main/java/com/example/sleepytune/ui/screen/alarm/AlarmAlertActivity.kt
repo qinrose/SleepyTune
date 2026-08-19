@@ -7,6 +7,7 @@ import android.util.Log
 import android.view.WindowManager
 import androidx.core.view.WindowCompat
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
@@ -75,7 +76,7 @@ class AlarmAlertActivity : ComponentActivity() {
         // 防止重复启动
         if (isActivityRunning) {
             Log.i(TAG, "Activity已在运行，检查闹钟状态")
-            val prefs = getSharedPreferences("alarm_state", MODE_MULTI_PROCESS)
+            val prefs = getSharedPreferences("alarm_state", MODE_PRIVATE)
             val isPlaying = prefs.getBoolean("is_alarm_playing", false)
             if (!isPlaying) {
                 Log.i(TAG, "闹钟已停止，关闭Activity")
@@ -85,6 +86,13 @@ class AlarmAlertActivity : ComponentActivity() {
             return
         }
         isActivityRunning = true
+
+        // 阻止系统返回键关闭闹钟提醒界面（替代已废弃的 onBackPressed()）
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                // 空实现：拦截返回键，防止误触关闭闹钟
+            }
+        })
 
         val lockScreenPopupEnabled = SettingsViewModel.isLockScreenPopupEnabled(this)
 
@@ -113,12 +121,7 @@ class AlarmAlertActivity : ComponentActivity() {
             }
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            window.navigationBarColor = android.graphics.Color.TRANSPARENT
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            window.statusBarColor = android.graphics.Color.TRANSPARENT
-        }
+        // edge-to-edge（enableEdgeToEdge）已使状态栏/导航栏透明，无需再设置已废弃的 statusBarColor/navigationBarColor
 
         Log.i(TAG, "闹钟提醒界面启动")
 
@@ -139,7 +142,7 @@ class AlarmAlertActivity : ComponentActivity() {
     }
 
     private fun restoreAlarmPlayback() {
-        val prefs = getSharedPreferences("alarm_state", MODE_MULTI_PROCESS)
+        val prefs = getSharedPreferences("alarm_state", MODE_PRIVATE)
 
         val isAlarmPlaying = prefs.getBoolean("is_alarm_playing", false)
         if (!isAlarmPlaying) {
@@ -198,7 +201,7 @@ class AlarmAlertActivity : ComponentActivity() {
             return
         }
 
-        val prefs = getSharedPreferences("alarm_state", MODE_MULTI_PROCESS)
+        val prefs = getSharedPreferences("alarm_state", MODE_PRIVATE)
         val isPlaying = prefs.getBoolean("is_alarm_playing", false)
         if (!isPlaying) {
             Log.i(TAG, "闹钟已停止，关闭Activity")
@@ -225,8 +228,6 @@ class AlarmAlertActivity : ComponentActivity() {
         shouldFinish = false
         Log.i(TAG, "闹钟提醒界面销毁")
     }
-
-    override fun onBackPressed() {}
 }
 
 @Composable
@@ -249,8 +250,6 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
     // 确保主题没有把状态栏/导航栏重新涂成不透明色，保持真正 edge-to-edge
     SideEffect {
         val window = (view.context as? android.app.Activity)?.window ?: return@SideEffect
-        window.statusBarColor = android.graphics.Color.TRANSPARENT
-        window.navigationBarColor = android.graphics.Color.TRANSPARENT
         WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
         WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = false
     }
@@ -264,13 +263,13 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
             songTitle = intentTitle
             songArtist = intentArtist
         } else {
-            val prefs = context.getSharedPreferences("alarm_state", android.content.Context.MODE_MULTI_PROCESS)
+            val prefs = context.getSharedPreferences("alarm_state", android.content.Context.MODE_PRIVATE)
             songTitle = prefs.getString("song_title", "") ?: ""
             songArtist = prefs.getString("song_artist", "") ?: ""
         }
-        shouldVibrate = context.getSharedPreferences("alarm_state", android.content.Context.MODE_MULTI_PROCESS)
+        shouldVibrate = context.getSharedPreferences("alarm_state", android.content.Context.MODE_PRIVATE)
             .getBoolean("should_vibrate", true)
-        isVibrating = context.getSharedPreferences("alarm_state", android.content.Context.MODE_MULTI_PROCESS)
+        isVibrating = context.getSharedPreferences("alarm_state", android.content.Context.MODE_PRIVATE)
             .getBoolean("is_vibrating", false)
     }
 
@@ -284,7 +283,7 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                             songArtist = it.getStringExtra(AlarmPlaybackService.EXTRA_SONG_ARTIST) ?: ""
                         }
                         AlarmPlaybackService.ACTION_SNOOZE_ENDED -> {
-                            val prefs = context.getSharedPreferences("alarm_state", android.content.Context.MODE_MULTI_PROCESS)
+                            val prefs = context.getSharedPreferences("alarm_state", android.content.Context.MODE_PRIVATE)
                             songTitle = prefs.getString("song_title", "") ?: ""
                             songArtist = prefs.getString("song_artist", "") ?: ""
                             shouldVibrate = prefs.getBoolean("should_vibrate", true)

@@ -75,6 +75,7 @@ class MediaStoreMusicDataSource @Inject constructor(
     }
 
     private fun getAlbumArtUri(albumId: Long): String? {
+        @Suppress("DEPRECATION")
         val projection = arrayOf(MediaStore.Audio.Albums.ALBUM_ART)
         val selection = "${MediaStore.Audio.Albums._ID} = ?"
         val selectionArgs = arrayOf(albumId.toString())
@@ -87,6 +88,7 @@ class MediaStoreMusicDataSource @Inject constructor(
             null
         )?.use { cursor ->
             if (cursor.moveToFirst()) {
+                @Suppress("DEPRECATION")
                 val albumArtCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Albums.ALBUM_ART)
                 return cursor.getString(albumArtCol)
             }

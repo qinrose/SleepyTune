@@ -23,6 +23,9 @@ class AlarmRescheduler @Inject constructor(
         try {
             val enabledAlarms = alarmRepository.getEnabledAlarms()
             
+            // 无论有没有闹钟，都先兜底把自愈心跳安排好
+            alarmScheduler.scheduleSelfHealing()
+
             if (enabledAlarms.isEmpty()) {
                 Log.i(TAG, "没有启用的闹钟需要恢复")
                 return

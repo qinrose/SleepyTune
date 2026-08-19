@@ -32,7 +32,7 @@ class AlarmStateManager @Inject constructor() {
 
     // 跨进程持久化闹钟播放状态（使用commit确保立即写入）
     fun persistAlarmPlaying(context: Context, isPlaying: Boolean, alarmId: Long = -1L, label: String = "") {
-        context.getSharedPreferences("alarm_state", Context.MODE_MULTI_PROCESS).edit().apply {
+        context.getSharedPreferences("alarm_state", Context.MODE_PRIVATE).edit().apply {
             putBoolean("is_alarm_playing", isPlaying)
             putLong("alarm_id", alarmId)
             putString("alarm_label", label)
@@ -45,7 +45,7 @@ class AlarmStateManager @Inject constructor() {
 
     // 持久化歌曲信息（跨进程）
     fun persistSongInfo(context: Context, title: String, artist: String) {
-        context.getSharedPreferences("alarm_state", Context.MODE_MULTI_PROCESS).edit().apply {
+        context.getSharedPreferences("alarm_state", Context.MODE_PRIVATE).edit().apply {
             putString("song_title", title)
             putString("song_artist", artist)
             apply()
@@ -56,7 +56,7 @@ class AlarmStateManager @Inject constructor() {
 
     // 持久化震动状态
     fun persistVibrateState(context: Context, shouldVibrate: Boolean, isVibrating: Boolean) {
-        context.getSharedPreferences("alarm_state", Context.MODE_MULTI_PROCESS).edit().apply {
+        context.getSharedPreferences("alarm_state", Context.MODE_PRIVATE).edit().apply {
             putBoolean("should_vibrate", shouldVibrate)
             putBoolean("is_vibrating", isVibrating)
             apply()
@@ -65,7 +65,7 @@ class AlarmStateManager @Inject constructor() {
 
     // 持久化贪睡启用状态
     fun persistSnoozeEnabled(context: Context, snoozeEnabled: Boolean) {
-        context.getSharedPreferences("alarm_state", Context.MODE_MULTI_PROCESS).edit().apply {
+        context.getSharedPreferences("alarm_state", Context.MODE_PRIVATE).edit().apply {
             putBoolean("snooze_enabled", snoozeEnabled)
             apply()
         }
@@ -121,13 +121,13 @@ class AlarmStateManager @Inject constructor() {
 
     // 获取贪睡启用状态
     fun getSnoozeEnabledCrossProcess(context: Context): Boolean {
-        return context.getSharedPreferences("alarm_state", Context.MODE_MULTI_PROCESS)
+        return context.getSharedPreferences("alarm_state", Context.MODE_PRIVATE)
             .getBoolean("snooze_enabled", true)
     }
 
     // 获取震动状态
     fun getVibrateStateCrossProcess(context: Context): Pair<Boolean, Boolean> {
-        val prefs = context.getSharedPreferences("alarm_state", Context.MODE_MULTI_PROCESS)
+        val prefs = context.getSharedPreferences("alarm_state", Context.MODE_PRIVATE)
         return Pair(
             prefs.getBoolean("should_vibrate", true),
             prefs.getBoolean("is_vibrating", false)
@@ -136,25 +136,25 @@ class AlarmStateManager @Inject constructor() {
 
     // 从SharedPreferences读取跨进程状态
     fun isAlarmPlayingCrossProcess(context: Context): Boolean {
-        return context.getSharedPreferences("alarm_state", Context.MODE_MULTI_PROCESS)
+        return context.getSharedPreferences("alarm_state", Context.MODE_PRIVATE)
             .getBoolean("is_alarm_playing", false)
     }
 
     // 获取跨进程的闹钟标签
     fun getAlarmLabelCrossProcess(context: Context): String {
-        return context.getSharedPreferences("alarm_state", Context.MODE_MULTI_PROCESS)
+        return context.getSharedPreferences("alarm_state", Context.MODE_PRIVATE)
             .getString("alarm_label", "") ?: ""
     }
 
     // 获取跨进程的闹钟ID
     fun getAlarmIdCrossProcess(context: Context): Long {
-        return context.getSharedPreferences("alarm_state", Context.MODE_MULTI_PROCESS)
+        return context.getSharedPreferences("alarm_state", Context.MODE_PRIVATE)
             .getLong("alarm_id", -1L)
     }
 
     // 获取跨进程的歌曲信息
     fun getSongInfoCrossProcess(context: Context): Pair<String, String> {
-        val prefs = context.getSharedPreferences("alarm_state", Context.MODE_MULTI_PROCESS)
+        val prefs = context.getSharedPreferences("alarm_state", Context.MODE_PRIVATE)
         return Pair(
             prefs.getString("song_title", "") ?: "",
             prefs.getString("song_artist", "") ?: ""
@@ -265,7 +265,7 @@ class AlarmStateManager @Inject constructor() {
 
     // 清除跨进程持久化状态
     fun clearPersistedState(context: Context) {
-        context.getSharedPreferences("alarm_state", Context.MODE_MULTI_PROCESS).edit().clear().commit()
+        context.getSharedPreferences("alarm_state", Context.MODE_PRIVATE).edit().clear().commit()
         clearPlaylistState(context)
         clearState()
     }

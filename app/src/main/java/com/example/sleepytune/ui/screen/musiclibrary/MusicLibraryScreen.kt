@@ -28,6 +28,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -39,7 +40,6 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SelectAll
-import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.Button
@@ -65,6 +65,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -137,11 +138,14 @@ fun Context.findActivity(): ComponentActivity? {
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun MusicLibraryScreen(navController: NavController) {
-    val musicViewModel: MusicLibraryViewModel = hiltViewModel()
-    val playlistViewModel: PlaylistViewModel = hiltViewModel()
-    val musicPlayerManager: MusicPlayerManager = hiltViewModel<com.example.sleepytune.ui.viewmodel.MusicPlayerViewModel>().musicPlayerManager
+    // 以 Activity 为作用域，避免 Tab 切换时重新创建 ViewModel 导致 Room 重查
+    val activity = LocalContext.current as ComponentActivity
+    val musicViewModel: MusicLibraryViewModel = hiltViewModel(activity)
+    val playlistViewModel: PlaylistViewModel = hiltViewModel(activity)
+    val musicPlayerManager: MusicPlayerManager = hiltViewModel<com.example.sleepytune.ui.viewmodel.MusicPlayerViewModel>(activity).musicPlayerManager
 
-    val musicList by musicViewModel.musicFromDb.collectAsState(initial = emptyList())
+    // 用 nullable initial 判断 Room Flow 首次发射：null 表示尚未发射，不显示空状态
+    val musicList by musicViewModel.musicFromDb.collectAsState(initial = null)
     val isLoading by musicViewModel.isLoading.collectAsState()
     val playlists by playlistViewModel.playlists.collectAsState(initial = emptyList())
     val previewState by musicPlayerManager.previewState.collectAsState()
@@ -169,8 +173,9 @@ fun MusicLibraryScreen(navController: NavController) {
     var showMultiAddDialog by remember { mutableStateOf(false) }
 
     val filteredMusic = remember(musicList, searchQuery, sortType, fileFilter, durationFilter) {
-        var filtered = if (searchQuery.isBlank()) musicList
-        else musicList.filter {
+        val list = musicList ?: emptyList()
+        var filtered = if (searchQuery.isBlank()) list
+        else list.filter {
             it.title.contains(searchQuery, ignoreCase = true) ||
             it.artist.contains(searchQuery, ignoreCase = true) ||
             it.album.contains(searchQuery, ignoreCase = true)
@@ -357,7 +362,7 @@ fun MusicLibraryScreen(navController: NavController) {
                         }
                         Box {
                             IconButton(onClick = { showSortMenu = true }) {
-                                Icon(Icons.Default.Sort, stringResource(R.string.music_sort), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(Icons.AutoMirrored.Filled.Sort, stringResource(R.string.music_sort), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             DropdownMenu(
                                 expanded = showSortMenu,
@@ -457,7 +462,7 @@ fun MusicLibraryScreen(navController: NavController) {
                 )
             }
 
-            if (isLoading && musicList.isEmpty()) {
+            if (musicList == null) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center

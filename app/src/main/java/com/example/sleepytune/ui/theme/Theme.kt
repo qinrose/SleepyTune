@@ -3,6 +3,7 @@ package com.example.sleepytune.ui.theme
 import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
@@ -10,6 +11,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 
 // 深色主题配色
@@ -68,6 +70,15 @@ private val LightColorScheme = lightColorScheme(
     outlineVariant = OutlineVariantLight
 )
 
+// 杂志风圆角：卡片、按钮、弹窗更圆润、更有编辑感
+private val MagazineShapes = Shapes(
+    extraSmall = RoundedCornerShape(6.dp),
+    small = RoundedCornerShape(10.dp),
+    medium = RoundedCornerShape(14.dp),
+    large = RoundedCornerShape(18.dp),
+    extraLarge = RoundedCornerShape(24.dp)
+)
+
 @Composable
 fun SleepyTuneTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -94,6 +105,9 @@ fun SleepyTuneTheme(
         }
 
         SideEffect {
+            // Android 15+ 已废弃 window.statusBarColor；在非 edge-to-edge 分支仍需显式着色，
+            // 故保留并抑制弃用警告（改用 WindowInsetsController 无法直接设置背景色）。
+            @Suppress("DEPRECATION")
             window.statusBarColor = statusBarColor
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
@@ -102,6 +116,7 @@ fun SleepyTuneTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
+        shapes = MagazineShapes,
         content = content
     )
 }
