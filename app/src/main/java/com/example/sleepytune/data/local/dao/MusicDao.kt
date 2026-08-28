@@ -25,6 +25,12 @@ interface MusicDao {
     @Query("DELETE FROM music")
     suspend fun deleteAll()
 
+    @Query("SELECT id FROM music")
+    suspend fun getAllIds(): List<Long>
+
+    @Query("DELETE FROM music WHERE id IN (:ids)")
+    suspend fun deleteByIds(ids: List<Long>)
+
     @Query("SELECT COUNT(*) FROM music")
     suspend fun getCount(): Int
 

@@ -75,6 +75,30 @@ class PlaylistManager @Inject constructor(
         return getCurrentSong()
     }
 
+    // 剔除无法播放的歌曲（按路径匹配），返回下一首可播歌曲；全部失败时返回 null
+    fun removeFailedSong(failedPath: String?): Music? {
+        if (musicList.isEmpty()) return null
+        if (failedPath.isNullOrEmpty()) return nextSong()
+
+        val removedIndex = musicList.indexOfFirst { it.path == failedPath }
+        if (removedIndex >= 0) {
+            val newList = musicList.toMutableList().apply { removeAt(removedIndex) }
+            musicList = newList
+            // 移除的歌曲在当前索引之前时，索引需要前移一位，保持指向"下一首"
+            if (removedIndex < currentIndex) currentIndex--
+            if (musicList.isEmpty()) {
+                currentIndex = 0
+                Log.w(TAG, "歌单中所有歌曲均已失败，无可用歌曲")
+                persistState()
+                return null
+            }
+            currentIndex = currentIndex.coerceIn(0, musicList.size - 1)
+            Log.w(TAG, "已剔除失效歌曲: $failedPath")
+            persistState()
+        }
+        return getCurrentSong()
+    }
+
     // 播放上一首
     fun previousSong(): Music? {
         if (musicList.isEmpty()) return null

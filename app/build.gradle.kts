@@ -47,6 +47,14 @@ android {
         buildConfig = true
     }
 
+    // AGP 9 内置 Kotlin：配置编译器参数（KT-73255 提前 opt in，
+    // 让 @Inject 等注解同时作用于 value parameter 与 field，消除未来行为变更警告）
+    kotlin {
+        compilerOptions {
+            freeCompilerArgs.add("-Xannotation-default-target=param-property")
+        }
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"

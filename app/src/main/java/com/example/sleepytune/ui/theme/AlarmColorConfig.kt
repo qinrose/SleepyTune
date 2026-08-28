@@ -48,4 +48,9 @@ object AlarmColorConfig {
     // 动画颜色
     val PulseColor = Color(0xFF6B7FD7)         // 脉冲动画 - 星空蓝
     val RippleColor = Color(0x33FFFFFF)        // 涟漪动画 - 20% 白色
+
+    // 播放回退警告条（歌曲无法播放，已用默认铃声）
+    val WarningBackground = Color(0x33FFB74D)  // 琥珀色玻璃态背景
+    val WarningBorder = Color(0x66FFB74D)      // 琥珀色边框
+    val WarningText = Color(0xFFFFE0B2)        // 浅琥珀文字
 }

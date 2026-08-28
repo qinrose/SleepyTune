@@ -2,6 +2,7 @@ package com.example.sleepytune.data.repository
 
 import android.util.Log
 import com.example.sleepytune.data.datasource.LocalMusicDataSource
+import com.example.sleepytune.data.local.dao.AlarmDao
 import com.example.sleepytune.data.local.dao.MusicDao
 import com.example.sleepytune.data.local.dao.PlaylistDao
 import com.example.sleepytune.data.local.entity.Music
@@ -18,6 +19,7 @@ import javax.inject.Singleton
 class PlaylistRepositoryImpl @Inject constructor(
     private val playlistDao: PlaylistDao,
     private val musicDao: MusicDao,
+    private val alarmDao: AlarmDao,
     private val musicDataSource: LocalMusicDataSource
 ) : PlaylistRepository {
 
@@ -37,6 +39,9 @@ class PlaylistRepositoryImpl @Inject constructor(
     override suspend fun deletePlaylist(playlist: Playlist) {
         playlistDao.deletePlaylist(playlist)
         playlistDao.deletePlaylistSongs(playlist.id)
+        // 级联：解除所有引用该歌单的闹钟，避免闹钟指向已删除的歌单（触发时静默响默认音）
+        val affected = alarmDao.clearPlaylistReference(playlist.id)
+        Log.i("PlaylistRepo", "已删除歌单 id=${playlist.id}，并解除引用它的闹钟($affected)")
     }
     
     override suspend fun renamePlaylist(playlistId: Long, newName: String) {
@@ -109,6 +114,14 @@ class PlaylistRepositoryImpl @Inject constructor(
                     // 2. 批量保存到 Room 数据库（REPLACE模式，自动更新已存在的记录）
                     musicDao.insertAll(scannedMusic)
                     Log.i("PlaylistRepo", "已保存 ${scannedMusic.size} 首音乐到数据库")
+                    
+                    // 2.1 清理僵尸记录：数据库中已不在 MediaStore 的条目（文件被删除/移动/卸载）
+                    val scannedIds = scannedMusic.map { it.id }.toSet()
+                    val staleIds = musicDao.getAllIds().filter { it !in scannedIds }
+                    staleIds.chunked(500).forEach { chunk -> musicDao.deleteByIds(chunk) }
+                    if (staleIds.isNotEmpty()) {
+                        Log.i("PlaylistRepo", "已清理 ${staleIds.size} 条失效音乐记录")
+                    }
                 }
                 
                 // 3. 从数据库返回完整的音乐列表

@@ -14,7 +14,8 @@ import javax.inject.Inject
 @HiltViewModel
 class AlarmListViewModel @Inject constructor(
     private val alarmRepository: AlarmRepository,
-    private val alarmScheduler: AlarmScheduler
+    private val alarmScheduler: AlarmScheduler,
+    private val alarmRescheduler: com.example.sleepytune.service.AlarmRescheduler
 ) : ViewModel() {
 
     val alarms: StateFlow<List<Alarm>> = alarmRepository.observeAllAlarms()
@@ -24,6 +25,7 @@ class AlarmListViewModel @Inject constructor(
         viewModelScope.launch {
             alarmRepository.deleteAlarm(alarm)
             alarmScheduler.cancel(alarm)
+            alarmRescheduler.refreshNextAlarmTime()
         }
     }
 
@@ -36,6 +38,7 @@ class AlarmListViewModel @Inject constructor(
             } else {
                 alarmScheduler.cancel(alarm)
             }
+            alarmRescheduler.refreshNextAlarmTime()
         }
     }
 }

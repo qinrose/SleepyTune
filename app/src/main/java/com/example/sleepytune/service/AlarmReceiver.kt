@@ -3,6 +3,7 @@ package com.example.sleepytune.service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.util.Log
 import com.example.sleepytune.data.repository.PlaylistRepository
@@ -18,6 +19,8 @@ class AlarmReceiver : BroadcastReceiver() {
         private const val TAG = "AlarmReceiver"
 
         const val ACTION_ALARM_TRIGGERED = "com.example.sleepytune.ALARM_TRIGGERED"
+        const val ACTION_ALARM_BACKUP = "com.example.sleepytune.ALARM_BACKUP"
+        const val ACTION_PRE_WAKE = "com.example.sleepytune.PRE_WAKE"
         const val ACTION_SELF_HEAL = "com.example.sleepytune.SELF_HEAL"
         const val ACTION_BOOT_COMPLETED = "android.intent.action.BOOT_COMPLETED"
         const val ACTION_MY_PACKAGE_REPLACED = "android.intent.action.MY_PACKAGE_REPLACED"
@@ -56,32 +59,42 @@ class AlarmReceiver : BroadcastReceiver() {
         when (intent.action) {
             ACTION_BOOT_COMPLETED -> {
                 Log.i(TAG, "System reboot, rescheduling all alarms")
-                rescheduleAllAlarms(alarmScheduler, alarmRepository)
-                alarmScheduler.scheduleSelfHealing()
+                rescheduleAllAlarmsFull(hiltEntryPoint)
             }
             ACTION_MY_PACKAGE_REPLACED -> {
                 Log.i(TAG, "App updated, restoring all alarms")
-                rescheduleAllAlarms(alarmScheduler, alarmRepository)
-                alarmScheduler.scheduleSelfHealing()
+                rescheduleAllAlarmsFull(hiltEntryPoint)
             }
             ACTION_TIME_SET, ACTION_TIMEZONE_CHANGED -> {
                 Log.i(TAG, "Time/timezone changed, rescheduling all alarms")
-                rescheduleAllAlarms(alarmScheduler, alarmRepository)
-                alarmScheduler.scheduleSelfHealing()
+                rescheduleAllAlarmsFull(hiltEntryPoint)
             }
             ACTION_SELF_HEAL -> {
                 Log.i(TAG, "自愈心跳：重新核对所有闹钟调度")
-                rescheduleAllAlarms(alarmScheduler, alarmRepository)
-                alarmScheduler.scheduleSelfHealing()
+                rescheduleAllAlarmsFull(hiltEntryPoint)
             }
-            ACTION_ALARM_TRIGGERED, "com.example.sleepytune.ALARM_BACKUP" -> {
+            ACTION_ALARM_TRIGGERED, ACTION_ALARM_BACKUP -> {
                 handleAlarmTriggered(context, intent, alarmScheduler, alarmRepository, hiltEntryPoint)
+            }
+            ACTION_PRE_WAKE -> {
+                handlePreWake(context, intent, hiltEntryPoint)
             }
             AlarmSnoozeManager.ACTION_SNOOZE_TRIGGER -> {
                 handleSnoozeTriggered(context, intent, hiltEntryPoint)
             }
             else -> {
                 Log.w(TAG, "Unknown broadcast: ${intent.action}")
+            }
+        }
+    }
+
+    // 完整重排：错过检测 + 自愈心跳 + 重新注册所有闹钟 + 刷新下次响铃时间
+    private fun rescheduleAllAlarmsFull(hiltEntryPoint: AlarmReceiverEntryPoint) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                hiltEntryPoint.alarmRescheduler().rescheduleAllAlarms()
+            } catch (e: Exception) {
+                Log.e(TAG, "全量重排失败: ${e.message}", e)
             }
         }
     }
@@ -108,6 +121,9 @@ class AlarmReceiver : BroadcastReceiver() {
 
         Log.i(TAG, "Alarm triggered: id=$alarmId, playlist=$playlistId, vibrate=$vibrate, delay=$vibrateDelayMinutes, snooze=$snoozeMinutes")
 
+        // 记录实际触发时间：即使被系统延迟投递，也不算"错过"
+        hiltEntryPoint.alarmStateManager().persistLastTriggerTime(context, System.currentTimeMillis())
+
         val serviceIntent = Intent(context, AlarmPlaybackService::class.java).apply {
             putExtra("alarm_id", alarmId)
             putExtra("playlist_id", playlistId)
@@ -133,7 +149,7 @@ class AlarmReceiver : BroadcastReceiver() {
             val playlistRepository = hiltEntryPoint.playlistRepository()
 
             // 预加载歌曲信息，立即传给 Activity（考虑 shuffleMode）
-            val (songTitle, songArtist) = loadSongInfo(ringtonePath, playlistId, shuffleMode, playlistRepository)
+            val (songTitle, songArtist) = loadSongInfo(context, ringtonePath, playlistId, shuffleMode, playlistRepository)
 
             val alertIntent = Intent(context, AlarmAlertActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
@@ -148,11 +164,49 @@ class AlarmReceiver : BroadcastReceiver() {
 
         CoroutineScope(Dispatchers.IO).launch {
             val alarm = alarmRepository.getAlarm(alarmId)
-            if (alarm != null && !alarm.repeatDays.isNullOrEmpty()) {
-                alarmScheduler.schedule(alarm)
+            if (alarm != null) {
+                if (!alarm.repeatDays.isNullOrEmpty()) {
+                    // 重复闹钟：响铃瞬间就重排下一次，避免进程被杀导致第二天漏响
+                    alarmScheduler.schedule(alarm)
+                } else {
+                    // 一次性闹钟：响后自动停用并取消，避免被全量重排再次挂起（再次响铃）
+                    alarmRepository.enableAlarm(alarmId, false)
+                    alarmScheduler.cancel(alarm)
+                }
             }
+            // 刷新"下一个闹钟时间"，供错过检测使用
+            hiltEntryPoint.alarmRescheduler().refreshNextAlarmTime()
             // 每天自动核对一遍所有调度，防止 OEM 偷偷清掉闹钟
             alarmScheduler.scheduleSelfHealing()
+        }
+    }
+
+    // 预唤醒：响前约 60 秒触发
+    // 目的：① 拿 PARTIAL_WAKE_LOCK 保活到正式闹钟触发；② 幂等重挂主闹钟，防 OEM 静默清调度
+    private fun handlePreWake(context: Context, intent: Intent, hiltEntryPoint: AlarmReceiverEntryPoint) {
+        val alarmId = intent.getLongExtra(EXTRA_ALARM_ID, -1L)
+        Log.i(TAG, "预唤醒: alarmId=$alarmId")
+
+        // 保活 2 分钟（覆盖正式闹钟触发时刻）
+        try {
+            val pm = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+            val wakeLock = pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "SleepyTune:PreWake")
+            wakeLock.acquire(2 * 60 * 1000L)
+        } catch (e: Exception) {
+            Log.w(TAG, "预唤醒 WakeLock 获取失败: ${e.message}")
+        }
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val alarm = hiltEntryPoint.alarmRepository().getAlarm(alarmId)
+                if (alarm != null && alarm.isEnabled) {
+                    // 幂等重挂：主闹钟+备份+下一次预唤醒（预唤醒自身时间已过，不会递归）
+                    hiltEntryPoint.alarmScheduler().schedule(alarm)
+                    Log.i(TAG, "预唤醒：已重新确认闹钟 id=$alarmId")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "预唤醒重挂闹钟失败: ${e.message}", e)
+            }
         }
     }
 
@@ -160,13 +214,18 @@ class AlarmReceiver : BroadcastReceiver() {
     // 注意：歌单模式下不预加载，因为 shuffleMode 的随机选择可能与 PlaylistManager 不一致
     // 等 AlarmPlaybackService 发送广播更新正确的歌曲信息
     private suspend fun loadSongInfo(
+        context: Context,
         ringtonePath: String?,
         playlistId: Long,
         shuffleMode: Boolean,
         playlistRepository: PlaylistRepository
     ): Pair<String, String> {
-        // 单铃声模式：直接解析文件名
+        // 单铃声模式：content URI 查 MediaStore 标题；裸路径解析文件名
         if (!ringtonePath.isNullOrEmpty()) {
+            if (ringtonePath.startsWith("content://")) {
+                val title = queryMediaStoreTitle(context, ringtonePath) ?: "闹钟铃声"
+                return Pair(title, "闹钟铃声")
+            }
             val fileName = ringtonePath.substringAfterLast("/").substringBeforeLast(".")
             return Pair(fileName, "闹钟铃声")
         }
@@ -174,20 +233,21 @@ class AlarmReceiver : BroadcastReceiver() {
         return Pair("", "")
     }
 
-    private fun rescheduleAllAlarms(
-        alarmScheduler: AlarmScheduler,
-        alarmRepository: com.example.sleepytune.data.repository.AlarmRepository
-    ) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val alarms = alarmRepository.getEnabledAlarms()
-                alarms.forEach { alarm ->
-                    alarmScheduler.schedule(alarm)
-                }
-                Log.i(TAG, "Rescheduled ${alarms.size} alarms")
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to reschedule alarms: ${e.message}", e)
+    // 通过 content URI 查询 MediaStore 中的歌曲标题
+    private fun queryMediaStoreTitle(context: Context, uriString: String): String? {
+        return try {
+            context.contentResolver.query(
+                Uri.parse(uriString),
+                arrayOf(android.provider.MediaStore.Audio.Media.TITLE),
+                null,
+                null,
+                null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) cursor.getString(0) else null
             }
+        } catch (e: Exception) {
+            Log.w(TAG, "查询MediaStore标题失败: ${e.message}")
+            null
         }
     }
 
@@ -240,7 +300,7 @@ class AlarmReceiver : BroadcastReceiver() {
         // 预加载歌曲信息并启动 Activity
         CoroutineScope(Dispatchers.IO).launch {
             val playlistRepository = hiltEntryPoint.playlistRepository()
-            val (songTitle, songArtist) = loadSongInfo(ringtonePath, playlistId, shuffleMode, playlistRepository)
+            val (songTitle, songArtist) = loadSongInfo(context, ringtonePath, playlistId, shuffleMode, playlistRepository)
 
             val alertIntent = Intent(context, AlarmAlertActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
@@ -261,5 +321,7 @@ class AlarmReceiver : BroadcastReceiver() {
         fun alarmRepository(): com.example.sleepytune.data.repository.AlarmRepository
         fun playlistRepository(): PlaylistRepository
         fun notificationHelper(): NotificationHelper
+        fun alarmRescheduler(): AlarmRescheduler
+        fun alarmStateManager(): AlarmStateManager
     }
 }

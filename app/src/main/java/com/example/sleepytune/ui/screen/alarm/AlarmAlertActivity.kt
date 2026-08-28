@@ -236,6 +236,7 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
 
     var songTitle by remember { mutableStateOf("") }
     var songArtist by remember { mutableStateOf("") }
+    var playbackWarning by remember { mutableStateOf<String?>(null) }
     var isVibrating by remember { mutableStateOf(false) }
     var shouldVibrate by remember { mutableStateOf(true) }
     var showVibrationControls by remember { mutableStateOf(false) }
@@ -267,6 +268,9 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
             songTitle = prefs.getString("song_title", "") ?: ""
             songArtist = prefs.getString("song_artist", "") ?: ""
         }
+        // 界面可能晚于回退广播注册，从持久化状态补读
+        playbackWarning = context.getSharedPreferences("alarm_state", android.content.Context.MODE_PRIVATE)
+            .getString("fallback_reason", null)
         shouldVibrate = context.getSharedPreferences("alarm_state", android.content.Context.MODE_PRIVATE)
             .getBoolean("should_vibrate", true)
         isVibrating = context.getSharedPreferences("alarm_state", android.content.Context.MODE_PRIVATE)
@@ -281,6 +285,13 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                         AlarmPlaybackService.ACTION_UPDATE_PLAYBACK_INFO -> {
                             songTitle = it.getStringExtra(AlarmPlaybackService.EXTRA_SONG_TITLE) ?: ""
                             songArtist = it.getStringExtra(AlarmPlaybackService.EXTRA_SONG_ARTIST) ?: ""
+                        }
+                        AlarmPlaybackService.ACTION_PLAYBACK_FALLBACK -> {
+                            // 音频已降级为系统默认铃声：显示警告，不再"歌名对但声音是默认音"的错觉
+                            val reason = it.getStringExtra(AlarmPlaybackService.EXTRA_FALLBACK_REASON) ?: "音乐无法播放"
+                            val failedTitle = it.getStringExtra(AlarmPlaybackService.EXTRA_FALLBACK_TITLE)
+                            if (!failedTitle.isNullOrEmpty()) songTitle = failedTitle
+                            playbackWarning = reason
                         }
                         AlarmPlaybackService.ACTION_SNOOZE_ENDED -> {
                             val prefs = context.getSharedPreferences("alarm_state", android.content.Context.MODE_PRIVATE)
@@ -298,6 +309,7 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
         }
         val filter = android.content.IntentFilter().apply {
             addAction(AlarmPlaybackService.ACTION_UPDATE_PLAYBACK_INFO)
+            addAction(AlarmPlaybackService.ACTION_PLAYBACK_FALLBACK)
             addAction(AlarmPlaybackService.ACTION_SNOOZE_ENDED)
             addAction(AlarmPlaybackReceiver.ACTION_FINISH_ACTIVITY)
         }
@@ -388,6 +400,12 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
             Spacer(modifier = Modifier.weight(1f))
 
             // 歌曲信息卡片：克制、杂志专题式
+            // 音频已回退默认铃声时的警告条（界面与声音同步的关键）
+            val warning = playbackWarning
+            if (!warning.isNullOrEmpty()) {
+                PlaybackWarningBanner(text = warning)
+                Spacer(modifier = Modifier.height(12.dp))
+            }
             if (songTitle.isNotEmpty()) {
                 MagazineSongCard(
                     title = songTitle,
@@ -520,6 +538,34 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun PlaybackWarningBanner(text: String) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = AlarmColorConfig.WarningBackground,
+        border = androidx.compose.foundation.BorderStroke(1.dp, AlarmColorConfig.WarningBorder),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "⚠️",
+                fontSize = 18.sp
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                text = "已改用系统默认铃声：$text",
+                style = MaterialTheme.typography.bodyMedium,
+                color = AlarmColorConfig.WarningText,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }

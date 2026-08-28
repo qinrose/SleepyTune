@@ -9,6 +9,9 @@
     <!-- Android 12+ 精确闹钟权限 -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     
+    <!-- Android 13+ 闹钟类应用专用：默认授予且用户不可撤销，杜绝精确闹钟权限被撤导致漏响 -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    
     <!-- ========== 唤醒和锁屏权限 ========== -->
     <!-- CPU唤醒 -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />

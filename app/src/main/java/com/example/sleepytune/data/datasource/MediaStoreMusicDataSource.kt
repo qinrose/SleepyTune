@@ -1,5 +1,6 @@
 package com.example.sleepytune.data.datasource
 
+import android.content.ContentUris
 import android.content.Context
 import android.provider.MediaStore
 import com.example.sleepytune.data.local.entity.Music
@@ -23,7 +24,6 @@ class MediaStoreMusicDataSource @Inject constructor(
             MediaStore.Audio.Media.ALBUM,
             MediaStore.Audio.Media.DURATION,
             MediaStore.Audio.Media.SIZE,
-            MediaStore.Audio.Media.DATA,
             MediaStore.Audio.Media.MIME_TYPE,
             MediaStore.Audio.Media.ALBUM_ID
         )
@@ -49,22 +49,23 @@ class MediaStoreMusicDataSource @Inject constructor(
             val albumCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
             val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
             val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
-            val pathCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
             val mimeCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
             val albumIdCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
 
             while (cursor.moveToNext()) {
+                val id = cursor.getLong(idCol)
                 val albumId = cursor.getLong(albumIdCol)
                 val albumArtUri = getAlbumArtUri(albumId)
                 
                 val music = Music(
-                    id = cursor.getLong(idCol),
+                    id = id,
                     title = cursor.getString(titleCol),
                     artist = cursor.getString(artistCol) ?: "未知艺术家",
                     album = cursor.getString(albumCol) ?: "",
                     duration = cursor.getLong(durationCol),
                     size = cursor.getLong(sizeCol),
-                    path = cursor.getString(pathCol),
+                    // 存 content URI 而非裸文件路径：兼容分区存储、文件移动后仍可解析
+                    path = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id).toString(),
                     mimeType = cursor.getString(mimeCol) ?: "audio/*",
                     albumArtUri = albumArtUri
                 )

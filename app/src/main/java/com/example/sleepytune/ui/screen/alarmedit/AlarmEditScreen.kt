@@ -158,8 +158,10 @@ fun AlarmEditScreen(navController: NavController, alarmId: Long?) {
                         viewModel.setShuffleMode(shuffleMode)
                         viewModel.setFadeInEnabled(fadeInEnabled)
                         viewModel.setFadeInDuration(fadeInDuration)
-                        viewModel.saveAlarm(context)
-                        navController.popBackStack()
+                        // 校验失败（歌单无可用音乐）时不返回上一页
+                        viewModel.saveAlarm(context) { saved ->
+                            if (saved) navController.popBackStack()
+                        }
                     }) {
                         Text(stringResource(R.string.confirm_save))
                     }

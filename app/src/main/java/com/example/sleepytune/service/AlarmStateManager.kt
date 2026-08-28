@@ -36,11 +36,74 @@ class AlarmStateManager @Inject constructor() {
             putBoolean("is_alarm_playing", isPlaying)
             putLong("alarm_id", alarmId)
             putString("alarm_label", label)
+            if (!isPlaying) remove("fallback_reason")  // 停止/贪睡时清除回退标记
             commit()  // 同步写入，确保跨进程读取正确
         }
         _isAlarmPlaying.value = isPlaying
         _currentAlarmId.value = alarmId
         _alarmLabel.value = label
+    }
+
+    // 持久化"回退默认铃声"原因（跨进程，供闹钟界面显示警告）
+    fun persistPlaybackFallback(context: Context, reason: String) {
+        context.getSharedPreferences("alarm_state", Context.MODE_PRIVATE).edit().apply {
+            putString("fallback_reason", reason)
+            apply()
+        }
+    }
+
+    // 读取跨进程的回退原因
+    fun getPlaybackFallbackCrossProcess(context: Context): String? {
+        return context.getSharedPreferences("alarm_state", Context.MODE_PRIVATE)
+            .getString("fallback_reason", null)
+    }
+
+    // 持久化"下一个闹钟触发时间"（错过检测的依据）
+    fun persistNextAlarmTime(context: Context, millis: Long) {
+        context.getSharedPreferences("alarm_state", Context.MODE_PRIVATE).edit().apply {
+            putLong("next_alarm_time", millis)
+            apply()
+        }
+    }
+
+    // 读取下一个闹钟触发时间（0 = 无）
+    fun getNextAlarmTime(context: Context): Long {
+        return context.getSharedPreferences("alarm_state", Context.MODE_PRIVATE)
+            .getLong("next_alarm_time", 0L)
+    }
+
+    fun clearNextAlarmTime(context: Context) {
+        context.getSharedPreferences("alarm_state", Context.MODE_PRIVATE).edit().apply {
+            remove("next_alarm_time")
+            apply()
+        }
+    }
+
+    // 已提示过的"错过闹钟"时间（避免重复通知）
+    fun persistMissedChecked(context: Context, millis: Long) {
+        context.getSharedPreferences("alarm_state", Context.MODE_PRIVATE).edit().apply {
+            putLong("missed_checked", millis)
+            apply()
+        }
+    }
+
+    fun getMissedChecked(context: Context): Long {
+        return context.getSharedPreferences("alarm_state", Context.MODE_PRIVATE)
+            .getLong("missed_checked", 0L)
+    }
+
+    // 记录闹钟"实际触发"时间（广播接收器收到即写入）
+    // 用于错过检测：若实际触发时间 >= 预期时间，说明只是延迟触发，不算错过
+    fun persistLastTriggerTime(context: Context, millis: Long) {
+        context.getSharedPreferences("alarm_state", Context.MODE_PRIVATE).edit().apply {
+            putLong("last_alarm_trigger_time", millis)
+            apply()
+        }
+    }
+
+    fun getLastTriggerTime(context: Context): Long {
+        return context.getSharedPreferences("alarm_state", Context.MODE_PRIVATE)
+            .getLong("last_alarm_trigger_time", 0L)
     }
 
     // 持久化歌曲信息（跨进程）

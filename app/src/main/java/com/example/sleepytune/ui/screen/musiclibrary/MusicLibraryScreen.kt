@@ -1168,7 +1168,7 @@ private fun ArtistMusicList(
 ) {
     LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)) {
         items(musicList, key = { it.id }) { music ->
-            val isPlaying = previewState is MusicPlayerManager.PreviewState.Playing && (previewState as MusicPlayerManager.PreviewState.Playing).path == music.path
+            val isPlaying = previewState is MusicPlayerManager.PreviewState.Playing && previewState.path == music.path
             Card(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).combinedClickable(
                     onClick = { onMusicClick(music) },

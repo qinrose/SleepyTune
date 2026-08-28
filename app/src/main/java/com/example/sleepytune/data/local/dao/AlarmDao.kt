@@ -35,4 +35,7 @@ interface AlarmDao {
 
     @Query("UPDATE alarms SET isEnabled = :enabled WHERE id = :id")
     suspend fun updateEnabled(id: Long, enabled: Boolean)
+
+    @Query("UPDATE alarms SET playlistId = 0 WHERE playlistId = :playlistId")
+    suspend fun clearPlaylistReference(playlistId: Long): Int
 }

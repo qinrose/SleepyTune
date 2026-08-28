@@ -34,6 +34,11 @@ class AlarmPlaybackService : Service() {
         const val EXTRA_CURRENT_INDEX = "current_index"
         const val EXTRA_TOTAL_SONGS = "total_songs"
         
+        // 回退默认铃声广播（歌名与声音不同步的根因修复：界面必须知道音频已降级）
+        const val ACTION_PLAYBACK_FALLBACK = "com.example.sleepytune.PLAYBACK_FALLBACK"
+        const val EXTRA_FALLBACK_TITLE = "fallback_title"
+        const val EXTRA_FALLBACK_REASON = "fallback_reason"
+        
         @Volatile private var instance: AlarmPlaybackService? = null
         fun getInstance(): AlarmPlaybackService? = instance
         fun isPlaying(): Boolean = instance?.isPlaying ?: false
@@ -66,7 +71,8 @@ class AlarmPlaybackService : Service() {
         // 设置播放器回调
         audioPlayer.setCallbacks(
             completed = { playNextSong() },
-            failed = { handlePlaybackFailure() }
+            failed = { handlePlaybackFailure() },
+            started = { onPlaybackStarted() }
         )
         
         // 设置歌单回调
@@ -142,6 +148,9 @@ class AlarmPlaybackService : Service() {
         this.config = config
         isPlaying = true
         
+        // 清空上一闹钟可能残留的歌单状态（进程复用场景）
+        playlistManager.clear()
+        
         Log.i(TAG, "闹钟参数: ${config}")
         
         // 持久化状态
@@ -170,14 +179,13 @@ class AlarmPlaybackService : Service() {
                 if (hasPlaylist) {
                     playlistManager.getCurrentSong()?.let { song ->
                         audioPlayer.playLocalFile(applicationContext, song.path, config, true)
-                        updateNotification(song.title, song.artist, 1, playlistManager.getSize())
-                        // 发送广播更新 Activity 歌曲信息
-                        sendPlaybackInfoBroadcast(song.title, song.artist)
-                    }
+                        // 歌名不再提前广播：等 onPlaybackStarted（真正出声）再更新，避免歌名与声音不同步
+                    } ?: fallbackToDefaultRingtone("歌单加载成功但没有可用歌曲")
                 } else if (config.ringtonePath != null) {
                     audioPlayer.playLocalFile(applicationContext, config.ringtonePath, config, true, true)
                 } else {
-                    audioPlayer.playDefaultRingtone(applicationContext, config, true)
+                    val reason = if (config.playlistId <= 0) "未选择音乐歌单" else "歌单为空或歌曲数据已失效"
+                    fallbackToDefaultRingtone(reason)
                 }
             }
         }
@@ -203,17 +211,15 @@ class AlarmPlaybackService : Service() {
             return
         }
 
-        // 先停止当前播放，再播放下一首
+        // 先停止当前播放，再播放下一首（歌名由 onPlaybackStarted 在真正出声时更新）
         audioPlayer.stop()
 
         playlistManager.nextSong()?.let { song ->
             audioPlayer.playLocalFile(applicationContext, song.path, c, false)
-            // 发送广播更新 Activity 歌曲信息
-            sendPlaybackInfoBroadcast(song.title, song.artist)
         }
     }
 
-    // 处理播放失败
+    // 处理播放失败：跳过坏歌继续播，全部失败才回退默认铃声（不再"3次就锁死"）
     private fun handlePlaybackFailure() {
         if (!isPlaying) return
         val c = config
@@ -222,18 +228,64 @@ class AlarmPlaybackService : Service() {
             return
         }
 
-        // 单铃声模式下文件失效：直接切到系统默认闹钟音，避免无声
-        if (playlistManager.isEmpty() && c.ringtonePath != null) {
-            Log.w(TAG, "单铃声播放失败，切换默认闹钟音")
-            audioPlayer.playDefaultRingtone(applicationContext, c, false)
+        // 默认铃声本身失败：无可回退，直接停止，避免死循环
+        if (audioPlayer.getLastPath() == null) {
+            Log.e(TAG, "默认铃声播放失败，停止闹钟")
+            stopAlarm()
             return
         }
 
-        if (audioPlayer.getFailures() >= 3) {
-            audioPlayer.playDefaultRingtone(applicationContext, c, false)
-        } else {
-            playNextSong()
+        // 单铃声模式：文件失效 → 回退默认铃声
+        if (c.ringtonePath != null) {
+            fallbackToDefaultRingtone("铃声文件无法播放")
+            return
         }
+
+        // 歌单模式：剔除坏歌继续播下一首
+        val next = playlistManager.removeFailedSong(audioPlayer.getLastPath())
+        if (next != null) {
+            Log.w(TAG, "歌曲播放失败，跳过并尝试下一首: ${next.title}")
+            audioPlayer.playLocalFile(applicationContext, next.path, c, false)
+        } else {
+            fallbackToDefaultRingtone("歌单内所有歌曲均无法播放")
+        }
+    }
+
+    // 真正开始出声时的回调：此刻才更新歌名（保证界面与声音一致）
+    private fun onPlaybackStarted() {
+        if (!isPlaying) return
+        val song = playlistManager.getCurrentSong()
+        if (song != null) {
+            updateNotification(song.title, song.artist, playlistManager.getCurrentIndex() + 1, playlistManager.getSize())
+            sendPlaybackInfoBroadcast(song.title, song.artist)
+        }
+    }
+
+    // 回退到系统默认铃声（广播 + 通知告知用户原因）
+    private fun fallbackToDefaultRingtone(reason: String) {
+        val c = config ?: return
+        Log.w(TAG, "回退默认铃声: $reason")
+        val failedTitle = playlistManager.getCurrentSong()?.title ?: c.label
+        alarmStateManager.persistPlaybackFallback(applicationContext, reason)
+        sendFallbackBroadcast(failedTitle, reason)
+        notificationHelper.updateAlarmNotification(
+            alarmLabel = c.label,
+            isPlaying = true,
+            songTitle = "⚠️ $reason",
+            songIndex = 0,
+            songTotal = 0
+        )
+        audioPlayer.playDefaultRingtone(applicationContext, c, false)
+    }
+
+    // 发送回退广播给闹钟界面
+    private fun sendFallbackBroadcast(title: String, reason: String) {
+        val intent = Intent(ACTION_PLAYBACK_FALLBACK).apply {
+            putExtra(EXTRA_FALLBACK_TITLE, title)
+            putExtra(EXTRA_FALLBACK_REASON, reason)
+        }
+        sendBroadcast(intent)
+        Log.i(TAG, "发送回退广播: title=$title, reason=$reason")
     }
 
     // 贪睡

@@ -24,6 +24,7 @@ object RepositoryModule {
     ): PlaylistRepository = PlaylistRepositoryImpl(
         playlistDao = appDatabase.playlistDao(),
         musicDao = appDatabase.musicDao(),
+        alarmDao = appDatabase.alarmDao(),
         musicDataSource = dataSource
     )
 

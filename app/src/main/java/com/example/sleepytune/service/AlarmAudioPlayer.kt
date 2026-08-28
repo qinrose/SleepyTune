@@ -3,6 +3,7 @@ package com.example.sleepytune.service
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.MediaPlayer
+import android.net.Uri
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
@@ -31,14 +32,26 @@ class AlarmAudioPlayer @Inject constructor(
     private var timeoutJob: Job? = null
     private val mainScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     
+    // 最近一次尝试播放的路径（用于失败后跳过坏歌）
+    private var lastPath: String? = null
+    
     // 回调
     private var onCompleted: (() -> Unit)? = null
     private var onFailed: (() -> Unit)? = null
+    private var onStarted: (() -> Unit)? = null
 
-    fun setCallbacks(completed: () -> Unit, failed: () -> Unit) {
+    fun setCallbacks(
+        completed: () -> Unit,
+        failed: () -> Unit,
+        started: (() -> Unit)? = null
+    ) {
         onCompleted = completed
         onFailed = failed
+        onStarted = started
     }
+
+    // 获取最近一次尝试播放的路径
+    fun getLastPath(): String? = lastPath
 
     // 播放本地文件
     fun playLocalFile(context: Context, path: String, config: AlarmConfig, fadeIn: Boolean, loop: Boolean = false) {
@@ -71,12 +84,18 @@ class AlarmAudioPlayer @Inject constructor(
         
         state.set(State.PREPARING)
         releaseInternal()
+        lastPath = path
 
         try {
             mediaPlayer = MediaPlayer().apply {
                 setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
                 setAudioAttributes(buildAudioAttributes())
-                setDataSource(path)
+                // 兼容 content URI / file URI / 裸文件路径
+                if (path.startsWith("content://") || path.startsWith("file://")) {
+                    setDataSource(context, Uri.parse(path))
+                } else {
+                    setDataSource(path)
+                }
                 isLooping = loop
             }
             setupListeners(config, fadeIn, loop)
@@ -99,7 +118,8 @@ class AlarmAudioPlayer @Inject constructor(
         
         state.set(State.PREPARING)
         releaseInternal()
-        
+        lastPath = null  // 默认铃声失败时不应再走"跳过坏歌"逻辑
+
         try {
             val uri = Settings.System.DEFAULT_ALARM_ALERT_URI
             mediaPlayer = MediaPlayer().apply {
@@ -130,6 +150,8 @@ class AlarmAudioPlayer @Inject constructor(
                 applyVolume(config, fadeIn)
                 mp.start()
                 Log.i(TAG, "播放开始")
+                // 通知上层"真的开始播了"（界面歌名在此刻才更新，避免歌名与声音不同步）
+                onStarted?.invoke()
             }
             setOnCompletionListener {
                 cancelTimeout()

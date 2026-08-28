@@ -28,11 +28,13 @@ class NotificationHelper @Inject constructor(
         const val CHANNEL_ID_ALARM = "alarm_channel"
         const val CHANNEL_ID_SNOOZE = "snooze_channel"
         const val CHANNEL_ID_SLEEP_TIMER = "sleep_timer_channel"
+        const val CHANNEL_ID_MISSED = "missed_alarm_channel"
         
         // 通知ID
         const val NOTIFICATION_ID_ALARM = 1001
         const val NOTIFICATION_ID_SNOOZE = 1002
         const val NOTIFICATION_ID_SLEEP_TIMER = 1003
+        const val NOTIFICATION_ID_MISSED = 1004
         
         // 通知动作
         const val ACTION_STOP = "com.example.sleepytune.ACTION_STOP"
@@ -85,10 +87,22 @@ class NotificationHelper @Inject constructor(
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             }
             
+            // 错过闹钟提醒渠道
+            val missedChannel = NotificationChannel(
+                CHANNEL_ID_MISSED,
+                "错过的闹钟",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "提醒你错过了某个闹钟"
+                setShowBadge(true)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            }
+            
             notificationManager.createNotificationChannels(listOf(
                 alarmChannel,
                 snoozeChannel,
-                sleepTimerChannel
+                sleepTimerChannel,
+                missedChannel
             ))
             
             Log.i(TAG, "通知渠道已创建")
@@ -295,5 +309,28 @@ class NotificationHelper @Inject constructor(
     fun cancelSnoozeNotification() {
         notificationManager.cancel(NOTIFICATION_ID_SNOOZE)
         Log.i(TAG, "贪睡通知已取消")
+    }
+
+    // 显示"错过的闹钟"通知（闹钟到点没响，通常是强停/厂商省电策略导致）
+    fun showMissedAlarmNotification(missedTimeMillis: Long) {
+        val timeText = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+            .format(java.util.Date(missedTimeMillis))
+        val contentIntent = PendingIntent.getActivity(
+            context, 20, Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID_MISSED)
+            .setContentTitle("错过的闹钟")
+            .setContentText("$timeText 的闹钟没有响铃。若频繁发生，请允许本应用自启动并关闭电池优化。")
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentIntent(contentIntent)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setAutoCancel(true)
+            .build()
+        notificationManager.notify(NOTIFICATION_ID_MISSED, notification)
+        Log.w(TAG, "已提醒错过的闹钟: $timeText")
     }
 }
