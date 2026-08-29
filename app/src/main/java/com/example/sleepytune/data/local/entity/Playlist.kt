@@ -1,5 +1,6 @@
 package com.example.sleepytune.data.local.entity
 
+import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -36,4 +37,10 @@ data class Playlist(
 data class PlaylistSong(
     val playlistId: Long,
     val musicId: Long       // 对应 Music.id（MediaStore ID）
+)
+
+/** 歌单 + 歌曲数（管理页卡片展示用） */
+data class PlaylistWithCount(
+    @Embedded val playlist: Playlist,
+    val songCount: Int
 )

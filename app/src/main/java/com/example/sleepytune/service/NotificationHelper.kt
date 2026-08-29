@@ -29,12 +29,14 @@ class NotificationHelper @Inject constructor(
         const val CHANNEL_ID_SNOOZE = "snooze_channel"
         const val CHANNEL_ID_SLEEP_TIMER = "sleep_timer_channel"
         const val CHANNEL_ID_MISSED = "missed_alarm_channel"
+        const val CHANNEL_ID_PRE_ALARM = "pre_alarm_channel"
         
         // 通知ID
         const val NOTIFICATION_ID_ALARM = 1001
         const val NOTIFICATION_ID_SNOOZE = 1002
         const val NOTIFICATION_ID_SLEEP_TIMER = 1003
         const val NOTIFICATION_ID_MISSED = 1004
+        const val NOTIFICATION_ID_PRE_ALARM = 1005
         
         // 通知动作
         const val ACTION_STOP = "com.example.sleepytune.ACTION_STOP"
@@ -98,11 +100,23 @@ class NotificationHelper @Inject constructor(
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             }
             
+            // 响前提醒渠道（不打扰的默认重要性）
+            val preAlarmChannel = NotificationChannel(
+                CHANNEL_ID_PRE_ALARM,
+                "响铃提醒",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = "闹钟响起前 5 分钟提醒"
+                setShowBadge(false)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            }
+            
             notificationManager.createNotificationChannels(listOf(
                 alarmChannel,
                 snoozeChannel,
                 sleepTimerChannel,
-                missedChannel
+                missedChannel,
+                preAlarmChannel
             ))
             
             Log.i(TAG, "通知渠道已创建")
@@ -332,5 +346,38 @@ class NotificationHelper @Inject constructor(
             .build()
         notificationManager.notify(NOTIFICATION_ID_MISSED, notification)
         Log.w(TAG, "已提醒错过的闹钟: $timeText")
+    }
+
+    // 响前 5 分钟提醒：闹钟即将响起，降低"到点突然响"的惊吓
+    fun showPreAlarmNotification(alarmLabel: String, fireTimeMillis: Long) {
+        val timeText = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+            .format(java.util.Date(fireTimeMillis))
+        val contentIntent = PendingIntent.getActivity(
+            context, 21, Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val text = if (alarmLabel.isBlank()) {
+            context.getString(com.example.sleepytune.R.string.alarm_pre_ring_text, timeText)
+        } else {
+            context.getString(com.example.sleepytune.R.string.alarm_pre_ring_text_label, alarmLabel, timeText)
+        }
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID_PRE_ALARM)
+            .setContentTitle(context.getString(com.example.sleepytune.R.string.alarm_pre_ring_title))
+            .setContentText(text)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentIntent(contentIntent)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setAutoCancel(true)
+            .build()
+        notificationManager.notify(NOTIFICATION_ID_PRE_ALARM, notification)
+        Log.i(TAG, "已发送响前提醒: $timeText")
+    }
+
+    // 取消响前提醒（正式响铃时清理）
+    fun cancelPreAlarmNotification() {
+        notificationManager.cancel(NOTIFICATION_ID_PRE_ALARM)
     }
 }

@@ -93,8 +93,9 @@ import com.example.sleepytune.ui.viewmodel.PlaylistViewModel
 import com.example.sleepytune.utils.PermissionUtils
 
 enum class SortType(val labelRes: Int) {
-    TITLE(R.string.sort_name),
+    ALPHABETICAL(R.string.sort_alphabetical),
     ARTIST(R.string.sort_artist),
+    ALBUM(R.string.sort_album),
     DURATION(R.string.sort_duration),
     DATE_ADDED(R.string.sort_date_added)
 }
@@ -152,7 +153,7 @@ fun MusicLibraryScreen(navController: NavController) {
     val context = LocalContext.current
 
     var searchQuery by remember { mutableStateOf("") }
-    var sortType by remember { mutableStateOf(SortType.TITLE) }
+    var sortType by remember { mutableStateOf(SortType.ALPHABETICAL) }
     var fileFilter by remember { mutableStateOf(FileFilter.ALL) }
     var durationFilter by remember { mutableStateOf(DurationFilter.ALL) }
     var viewMode by remember { mutableStateOf(ViewMode.ALL) }
@@ -209,8 +210,11 @@ fun MusicLibraryScreen(navController: NavController) {
         }
 
         when (sortType) {
-            SortType.TITLE -> filtered.sortedBy { it.title.lowercase() }
+            SortType.ALPHABETICAL -> filtered.sortedWith(
+                compareBy(java.text.Collator.getInstance(java.util.Locale.getDefault())) { it.title.lowercase() }
+            )
             SortType.ARTIST -> filtered.sortedBy { it.artist.lowercase() }
+            SortType.ALBUM -> filtered.sortedBy { it.album.lowercase() }
             SortType.DURATION -> filtered.sortedByDescending { it.duration }
             SortType.DATE_ADDED -> filtered.sortedByDescending { it.id }
         }
@@ -614,7 +618,16 @@ fun MusicLibraryScreen(navController: NavController) {
                             items(albumList, key = { it.name }) { album ->
                                 AlbumListItem(
                                     album = album,
-                                    onClick = { selectedAlbum = album.name }
+                                    onClick = { selectedAlbum = album.name },
+                                    onAddToPlaylist = {
+                                        val songs = filteredMusic.filter { it.album == album.name }
+                                        playlistViewModel.createPlaylistWithSongs(album.name, songs.map { it.id })
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            context.getString(R.string.music_album_added, album.name),
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
                                 )
                             }
                         }
@@ -1126,10 +1139,10 @@ private fun ArtistListItem(artist: ArtistItem, onClick: () -> Unit) {
     }
 }
 
-// 专辑列表项（不带音符icon）
+// 专辑列表项（不带音符icon；支持整张专辑直接添加到歌单）
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun AlbumListItem(album: AlbumItem, onClick: () -> Unit) {
+private fun AlbumListItem(album: AlbumItem, onClick: () -> Unit, onAddToPlaylist: (() -> Unit)? = null) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).combinedClickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
@@ -1146,6 +1159,15 @@ private fun AlbumListItem(album: AlbumItem, onClick: () -> Unit) {
                 Text(text = album.name, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(text = "${album.artist} · ${album.musicCount}首", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+            }
+            if (onAddToPlaylist != null) {
+                IconButton(onClick = onAddToPlaylist) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = stringResource(R.string.music_add_album_to_playlist),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
         }
     }

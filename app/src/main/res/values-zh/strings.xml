@@ -24,6 +24,8 @@
     <string name="alarm_duration">时长</string>
     <string name="alarm_volume">音量</string>
     <string name="alarm_playlist">歌单</string>
+    <string name="alarm_daily_random">每日随机</string>
+    <string name="alarm_daily_random_hint">已开启，每天自动换一批</string>
 
     <!-- Days -->
     <string name="day_monday">一</string>
@@ -68,6 +70,8 @@
     <string name="music_found">找到 %d 首音乐</string>
     <string name="music_selected_count">已选择 %d 首</string>
     <string name="music_add_to_playlist">添加到歌单</string>
+    <string name="music_add_album_to_playlist">把整张专辑添加到歌单</string>
+    <string name="music_album_added">已创建歌单「%1$s」</string>
     <string name="music_select_all">全选</string>
     <string name="music_deselect_all">取消全选</string>
     <string name="music_play">播放</string>
@@ -78,6 +82,7 @@
     <string name="music_scan_hint">点击刷新按钮扫描本地音乐</string>
 
     <!-- Sort Options -->
+    <string name="sort_alphabetical">按字母 A–Z</string>
     <string name="sort_name">名称</string>
     <string name="sort_artist">艺术家</string>
     <string name="sort_album">专辑</string>
@@ -111,6 +116,9 @@
     <string name="playlist_detail_empty">歌单为空</string>
     <string name="playlist_detail_empty_hint">去音乐库添加歌曲到歌单吧</string>
     <string name="playlist_generate">生成歌单</string>
+    <string name="playlist_daily_random">每日随机</string>
+    <string name="playlist_daily_random_desc">每天自动换一批 · %1$d 首</string>
+    <string name="playlist_daily_random_refresh">换一批</string>
     <string name="playlist_input_hint">输入歌单名称</string>
     <string name="playlist_detail_title">歌单详情</string>
     <string name="playlist_delete_confirm">删除歌单</string>
@@ -122,6 +130,7 @@
     <string name="settings_sleep">睡眠辅助</string>
     <string name="settings_language">语言</string>
     <string name="settings_theme">主题</string>
+    <string name="settings_time_format">时间格式</string>
     <string name="settings_about">关于</string>
     <string name="settings_permissions">权限管理</string>
     <string name="settings_notifications">通知设置</string>
@@ -151,10 +160,16 @@
     <string name="theme_light">浅色模式</string>
     <string name="theme_dark">深色模式</string>
     <string name="theme_system">跟随系统</string>
+    <string name="settings_dynamic_color">动态取色</string>
+    <string name="settings_dynamic_color_desc">跟随壁纸颜色生成主题（Android 12+）</string>
+    <string name="alarm_pre_ring_title">闹钟提醒</string>
+    <string name="alarm_pre_ring_text">闹钟将于 %1$s 响起</string>
+    <string name="alarm_pre_ring_text_label">「%1$s」将于 %2$s 响起</string>
 
     <!-- Time Format -->
     <string name="time_format_12h">12小时制</string>
     <string name="time_format_24h">24小时制</string>
+    <string name="time_format_system">跟随系统</string>
     <string name="time_format_12h_desc">上午/下午格式</string>
     <string name="time_format_24h_desc">00:00 - 23:59</string>
 

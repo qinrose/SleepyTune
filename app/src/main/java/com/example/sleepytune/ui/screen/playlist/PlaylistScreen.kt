@@ -9,6 +9,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,11 +28,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.Delete
 
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -49,6 +52,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,7 +60,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
@@ -68,7 +75,8 @@ import com.example.sleepytune.ui.viewmodel.PlaylistViewModel
 @Composable
 fun PlaylistScreen(navController: NavController) {
     val viewModel: PlaylistViewModel = hiltViewModel()
-    val playlists by viewModel.playlists.collectAsState(initial = emptyList())
+    val playlists by viewModel.playlistsWithCount.collectAsState(initial = emptyList())
+    val dailyRandomPlaylistId by viewModel.dailyRandomPlaylistId.collectAsState()
 
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -100,20 +108,22 @@ fun PlaylistScreen(navController: NavController) {
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)
                 ) {
-                    items(playlists, key = { it.id }) { playlist ->
+                    // 每日随机歌单不在管理页展示（入口在闹钟编辑页），保持隐藏
+                    items(playlists.filter { it.playlist.id != dailyRandomPlaylistId }, key = { it.playlist.id }) { item ->
                         AnimatedVisibility(
                             visible = true,
                             enter = fadeIn(animationSpec = tween(300)) + scaleIn(animationSpec = tween(300)),
                             exit = fadeOut(animationSpec = tween(300)) + scaleOut(animationSpec = tween(300))
                         ) {
                             PlaylistCard(
-                                playlist = playlist,
-                                onClick = { navController.navigate("playlist/${playlist.id}") },
-                                onRename = { selectedPlaylist = playlist; renameText = playlist.name; showRenameDialog = true },
-                                onDelete = { selectedPlaylist = playlist; showDeleteDialog = true }
+                                playlist = item.playlist,
+                                songCount = item.songCount,
+                                onClick = { navController.navigate("playlist/${item.playlist.id}") },
+                                onRename = { selectedPlaylist = item.playlist; renameText = item.playlist.name; showRenameDialog = true },
+                                onDelete = { selectedPlaylist = item.playlist; showDeleteDialog = true }
                             )
                         }
                     }
@@ -247,34 +257,72 @@ private fun EmptyPlaylistScreen() {
     }
 }
 
+/**
+ * 歌单卡片 - 大师级设计
+ * 翡翠渐变封面块 + 克制的字体层级 + 微妙的彩色描边
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun PlaylistCard(playlist: Playlist, onClick: () -> Unit, onRename: () -> Unit, onDelete: () -> Unit) {
+fun PlaylistCard(
+    playlist: Playlist,
+    songCount: Int,
+    onClick: () -> Unit,
+    onRename: () -> Unit,
+    onDelete: () -> Unit
+) {
     var showMenu by remember { mutableStateOf(false) }
 
     Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
             .combinedClickable(onClick = onClick, onLongClick = { showMenu = true }),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
         ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // 翡翠渐变封面块
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                com.example.sleepytune.ui.theme.GradientStart,
+                                com.example.sleepytune.ui.theme.GradientAccentStart
+                            )
+                        ),
+                        RoundedCornerShape(14.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.MusicNote,
+                    contentDescription = null,
+                    modifier = Modifier.size(26.dp),
+                    tint = Color.White.copy(alpha = 0.9f)
+                )
+            }
+            Spacer(modifier = Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     playlist.name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(3.dp))
                 Text(
-                    stringResource(R.string.playlist_title),
+                    stringResource(R.string.playlist_song_count, songCount),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

@@ -23,6 +23,8 @@ class AlarmScheduler @Inject constructor(
         private const val REQUEST_CODE_BASE = 1000
         private const val REQUEST_CODE_SELF_HEAL = 987654
         private const val PRE_WAKE_MS = 60_000L            // 响前 60 秒预唤醒
+        private const val PRE_NOTIFY_MS = 5 * 60_000L      // 响前 5 分钟提醒通知
+        private const val REQUEST_OFFSET_PRE_NOTIFY = 300_000 // 响前提醒 requestCode 偏移
         private const val REQUEST_OFFSET_PRE_WAKE = 400_000 // 预唤醒 requestCode 偏移
         private const val REQUEST_OFFSET_BACKUP = 500_000   // 备份闹钟 requestCode 偏移
     }
@@ -124,6 +126,31 @@ class AlarmScheduler @Inject constructor(
             }
         }
 
+        // 响前 5 分钟提醒通知：降低"到点突然响"的惊吓（时间不足 5 分钟则跳过）
+        val preNotifyTime = alarmTime.timeInMillis - PRE_NOTIFY_MS
+        if (preNotifyTime > System.currentTimeMillis()) {
+            try {
+                val preNotifyPendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    requestCode + REQUEST_OFFSET_PRE_NOTIFY,
+                    buildAlarmIntent(AlarmReceiver.ACTION_PRE_ALARM_NOTIFY, alarm),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+                )
+                if (exactAvailable) {
+                    alarmManager.setExactAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        preNotifyTime,
+                        preNotifyPendingIntent
+                    )
+                } else {
+                    alarmManager.set(AlarmManager.RTC_WAKEUP, preNotifyTime, preNotifyPendingIntent)
+                }
+                Log.i(TAG, "已挂响前提醒通知: id=${alarm.id}, 提前5分钟")
+            } catch (e: Exception) {
+                Log.w(TAG, "挂响前提醒通知失败: ${e.message}")
+            }
+        }
+
         // 每天自愈一次，重新核对所有闹钟，防止 OEM 悄悄清掉调度
         scheduleSelfHealing()
     }
@@ -203,9 +230,10 @@ class AlarmScheduler @Inject constructor(
 
     fun cancel(alarm: Alarm) {
         cancelPendingIntent(alarm.id.toInt(), AlarmReceiver.ACTION_ALARM_TRIGGERED)
+        cancelPendingIntent(alarm.id.toInt() + REQUEST_OFFSET_PRE_NOTIFY, AlarmReceiver.ACTION_PRE_ALARM_NOTIFY)
         cancelPendingIntent(alarm.id.toInt() + REQUEST_OFFSET_BACKUP, AlarmReceiver.ACTION_ALARM_BACKUP)
         cancelPendingIntent(alarm.id.toInt() + REQUEST_OFFSET_PRE_WAKE, AlarmReceiver.ACTION_PRE_WAKE)
-        Log.i(TAG, "已取消闹钟(含备份/预唤醒): id=${alarm.id}")
+        Log.i(TAG, "已取消闹钟(含备份/预唤醒/响前提醒): id=${alarm.id}")
     }
 
     private fun cancelPendingIntent(requestCode: Int, action: String) {

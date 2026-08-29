@@ -17,7 +17,8 @@ class TimeFormatViewModel @Inject constructor(
 
     enum class TimeFormat {
         HOUR_24,
-        HOUR_12
+        HOUR_12,
+        AUTO   // 跟随系统
     }
 
     private val prefs: SharedPreferences =
@@ -26,30 +27,29 @@ class TimeFormatViewModel @Inject constructor(
     private val _timeFormat = MutableStateFlow(loadSavedTimeFormat())
     val timeFormat: StateFlow<TimeFormat> = _timeFormat.asStateFlow()
 
-    // 加载保存的时间制设置
+    // 加载保存的时间制设置（默认跟随系统）
     private fun loadSavedTimeFormat(): TimeFormat {
-        val saved = prefs.getString(KEY_TIME_FORMAT, TimeFormat.HOUR_24.name) ?: TimeFormat.HOUR_24.name
+        val saved = prefs.getString(KEY_TIME_FORMAT, TimeFormat.AUTO.name) ?: TimeFormat.AUTO.name
         return try {
             TimeFormat.valueOf(saved)
         } catch (_: IllegalArgumentException) {
-            TimeFormat.HOUR_24
+            TimeFormat.AUTO
         }
     }
 
-    // 切换时间制
+    // 设置时间制
     fun setTimeFormat(format: TimeFormat) {
         _timeFormat.value = format
         prefs.edit().putString(KEY_TIME_FORMAT, format.name).apply()
     }
 
-    // 切换时间制
-    fun toggleTimeFormat() {
-        val newFormat = if (_timeFormat.value == TimeFormat.HOUR_24) {
-            TimeFormat.HOUR_12
-        } else {
-            TimeFormat.HOUR_24
+    // 是否使用 24 小时制：AUTO 时跟随系统设置
+    fun is24Hour(): Boolean {
+        return when (_timeFormat.value) {
+            TimeFormat.HOUR_24 -> true
+            TimeFormat.HOUR_12 -> false
+            TimeFormat.AUTO -> android.text.format.DateFormat.is24HourFormat(getApplication())
         }
-        setTimeFormat(newFormat)
     }
 
     companion object {

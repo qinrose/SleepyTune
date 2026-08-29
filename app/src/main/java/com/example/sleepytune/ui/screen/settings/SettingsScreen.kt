@@ -24,12 +24,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowRight
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.NightlightRound
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -65,9 +67,11 @@ import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.sleepytune.R
+import com.example.sleepytune.ui.component.CardEntrance
 import com.example.sleepytune.ui.viewmodel.LanguageViewModel
 import com.example.sleepytune.ui.viewmodel.ThemeViewModel
 import com.example.sleepytune.ui.viewmodel.SettingsViewModel
+import com.example.sleepytune.ui.viewmodel.TimeFormatViewModel
 import com.example.sleepytune.utils.PermissionUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -77,11 +81,14 @@ fun SettingsScreen(navController: NavController) {
     val themeViewModel: ThemeViewModel = hiltViewModel()
     val languageViewModel: LanguageViewModel = hiltViewModel()
     val settingsViewModel: SettingsViewModel = hiltViewModel()
+    val timeFormatViewModel: TimeFormatViewModel = hiltViewModel()
     val themeMode by themeViewModel.themeMode.collectAsState()
     val currentLanguage by languageViewModel.currentLanguage.collectAsState()
     val lockScreenPopupEnabled by settingsViewModel.lockScreenPopupEnabled.collectAsState()
+    val timeFormat by timeFormatViewModel.timeFormat.collectAsState()
 
     var showThemeDialog by remember { mutableStateOf(false) }
+    var showTimeFormatDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
     var showLockScreenPermissionDialog by remember { mutableStateOf(false) }
 
@@ -108,50 +115,87 @@ fun SettingsScreen(navController: NavController) {
             Spacer(modifier = Modifier.height(8.dp))
 
             // 语言设置
-            SettingItem(
-                icon = Icons.Filled.Language,
-                title = stringResource(R.string.settings_language),
-                description = languageDisplayName
-            ) {
-                navController.navigate("languageSettings")
+            CardEntrance(0) {
+                SettingItem(
+                    icon = Icons.Filled.Language,
+                    title = stringResource(R.string.settings_language),
+                    description = languageDisplayName
+                ) {
+                    navController.navigate("languageSettings")
+                }
             }
 
             // 主题设置
-            SettingItem(
-                icon = Icons.Filled.Palette,
-                title = stringResource(R.string.settings_theme),
-                description = when (themeMode) {
-                    ThemeViewModel.ThemeMode.LIGHT -> stringResource(R.string.theme_light)
-                    ThemeViewModel.ThemeMode.DARK -> stringResource(R.string.theme_dark)
-                    ThemeViewModel.ThemeMode.AUTO -> stringResource(R.string.theme_system)
-                }
-            ) { showThemeDialog = true }
-
-            // 锁屏弹出设置
-            SettingSwitchItem(
-                icon = Icons.Filled.Lock,
-                title = stringResource(R.string.lock_screen_popup),
-                description = stringResource(R.string.lock_screen_popup_desc),
-                checked = lockScreenPopupEnabled,
-                onCheckedChange = { enabled ->
-                    if (enabled) {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-                            showLockScreenPermissionDialog = true
-                        } else {
-                            settingsViewModel.setLockScreenPopupEnabled(true)
-                        }
-                    } else {
-                        settingsViewModel.setLockScreenPopupEnabled(false)
+            CardEntrance(1) {
+                SettingItem(
+                    icon = Icons.Filled.Palette,
+                    title = stringResource(R.string.settings_theme),
+                    description = when (themeMode) {
+                        ThemeViewModel.ThemeMode.LIGHT -> stringResource(R.string.theme_light)
+                        ThemeViewModel.ThemeMode.DARK -> stringResource(R.string.theme_dark)
+                        ThemeViewModel.ThemeMode.AUTO -> stringResource(R.string.theme_system)
                     }
-                }
-            )
-
-            SettingItem(Icons.Filled.Security, stringResource(R.string.settings_permissions), stringResource(R.string.settings_permissions_desc)) {
-                navController.navigate("permissionGuide")
+                ) { showThemeDialog = true }
             }
 
-            SettingItem(Icons.Filled.Info, stringResource(R.string.settings_about), stringResource(R.string.settings_about_desc)) {
-                showAboutDialog = true
+            // 时间格式设置（12小时/24小时/跟随系统）
+            CardEntrance(2) {
+                SettingItem(
+                    icon = Icons.Filled.Schedule,
+                    title = stringResource(R.string.settings_time_format),
+                    description = when (timeFormat) {
+                        TimeFormatViewModel.TimeFormat.HOUR_24 -> stringResource(R.string.time_format_24h)
+                        TimeFormatViewModel.TimeFormat.HOUR_12 -> stringResource(R.string.time_format_12h)
+                        TimeFormatViewModel.TimeFormat.AUTO -> stringResource(R.string.time_format_system)
+                    }
+                ) { showTimeFormatDialog = true }
+            }
+
+            // 动态取色（Material You，仅 Android 12+）
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val dynamicColor by themeViewModel.dynamicColor.collectAsState()
+                CardEntrance(3) {
+                    SettingSwitchItem(
+                        icon = Icons.Filled.AutoAwesome,
+                        title = stringResource(R.string.settings_dynamic_color),
+                        description = stringResource(R.string.settings_dynamic_color_desc),
+                        checked = dynamicColor,
+                        onCheckedChange = { themeViewModel.setDynamicColor(it) }
+                    )
+                }
+            }
+
+            // 锁屏弹出设置
+            CardEntrance(4) {
+                SettingSwitchItem(
+                    icon = Icons.Filled.Lock,
+                    title = stringResource(R.string.lock_screen_popup),
+                    description = stringResource(R.string.lock_screen_popup_desc),
+                    checked = lockScreenPopupEnabled,
+                    onCheckedChange = { enabled ->
+                        if (enabled) {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                                showLockScreenPermissionDialog = true
+                            } else {
+                                settingsViewModel.setLockScreenPopupEnabled(true)
+                            }
+                        } else {
+                            settingsViewModel.setLockScreenPopupEnabled(false)
+                        }
+                    }
+                )
+            }
+
+            CardEntrance(5) {
+                SettingItem(Icons.Filled.Security, stringResource(R.string.settings_permissions), stringResource(R.string.settings_permissions_desc)) {
+                    navController.navigate("permissionGuide")
+                }
+            }
+
+            CardEntrance(6) {
+                SettingItem(Icons.Filled.Info, stringResource(R.string.settings_about), stringResource(R.string.settings_about_desc)) {
+                    showAboutDialog = true
+                }
             }
             Spacer(modifier = Modifier.height(16.dp))
         }
@@ -210,8 +254,7 @@ fun SettingsScreen(navController: NavController) {
     if (showAboutDialog) {
         AlertDialog(
             onDismissRequest = { showAboutDialog = false },
-            title = { Text(stringResource(R.string.about_title), style = MaterialTheme.typography.titleLarge) },
-            text = {
+            title = { Text(stringResource(R.string.about_title), style = MaterialTheme.typography.titleLarge) },            text = {
                 Column {
                     Text("SleepyTune v1.0.0", style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.height(8.dp))
@@ -229,6 +272,60 @@ fun SettingsScreen(navController: NavController) {
             shape = RoundedCornerShape(20.dp),
             containerColor = MaterialTheme.colorScheme.surface
         )
+    }
+
+    // 时间格式选择对话框（12小时 / 24小时 / 跟随系统）
+    if (showTimeFormatDialog) {
+        Dialog(onDismissRequest = { showTimeFormatDialog = false }) {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
+                    Text(stringResource(R.string.settings_time_format), style = MaterialTheme.typography.headlineSmall)
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    TimeFormatViewModel.TimeFormat.entries.forEach { format ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).clickable {
+                                timeFormatViewModel.setTimeFormat(format)
+                                showTimeFormatDialog = false
+                            },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = timeFormat == format,
+                                onClick = {
+                                    timeFormatViewModel.setTimeFormat(format)
+                                    showTimeFormatDialog = false
+                                },
+                                colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text(
+                                when (format) {
+                                    TimeFormatViewModel.TimeFormat.HOUR_24 -> stringResource(R.string.time_format_24h)
+                                    TimeFormatViewModel.TimeFormat.HOUR_12 -> stringResource(R.string.time_format_12h)
+                                    TimeFormatViewModel.TimeFormat.AUTO -> stringResource(R.string.time_format_system)
+                                },
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    TextButton(
+                        onClick = { showTimeFormatDialog = false },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(stringResource(R.string.confirm_cancel), style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+            }
+        }
     }
 
     if (showLockScreenPermissionDialog) {
@@ -281,7 +378,8 @@ fun SettingItem(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        // 与主界面卡片一致：彩色边框
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
@@ -335,7 +433,8 @@ fun SettingSwitchItem(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        // 与主界面卡片一致：彩色边框
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(

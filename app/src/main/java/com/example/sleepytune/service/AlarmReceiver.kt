@@ -21,6 +21,7 @@ class AlarmReceiver : BroadcastReceiver() {
         const val ACTION_ALARM_TRIGGERED = "com.example.sleepytune.ALARM_TRIGGERED"
         const val ACTION_ALARM_BACKUP = "com.example.sleepytune.ALARM_BACKUP"
         const val ACTION_PRE_WAKE = "com.example.sleepytune.PRE_WAKE"
+        const val ACTION_PRE_ALARM_NOTIFY = "com.example.sleepytune.PRE_ALARM_NOTIFY"
         const val ACTION_SELF_HEAL = "com.example.sleepytune.SELF_HEAL"
         const val ACTION_BOOT_COMPLETED = "android.intent.action.BOOT_COMPLETED"
         const val ACTION_MY_PACKAGE_REPLACED = "android.intent.action.MY_PACKAGE_REPLACED"
@@ -79,6 +80,9 @@ class AlarmReceiver : BroadcastReceiver() {
             ACTION_PRE_WAKE -> {
                 handlePreWake(context, intent, hiltEntryPoint)
             }
+            ACTION_PRE_ALARM_NOTIFY -> {
+                handlePreAlarmNotify(context, intent, hiltEntryPoint)
+            }
             AlarmSnoozeManager.ACTION_SNOOZE_TRIGGER -> {
                 handleSnoozeTriggered(context, intent, hiltEntryPoint)
             }
@@ -123,6 +127,9 @@ class AlarmReceiver : BroadcastReceiver() {
 
         // 记录实际触发时间：即使被系统延迟投递，也不算"错过"
         hiltEntryPoint.alarmStateManager().persistLastTriggerTime(context, System.currentTimeMillis())
+
+        // 正式响铃：清掉响前提醒通知
+        hiltEntryPoint.notificationHelper().cancelPreAlarmNotification()
 
         val serviceIntent = Intent(context, AlarmPlaybackService::class.java).apply {
             putExtra("alarm_id", alarmId)
@@ -178,6 +185,23 @@ class AlarmReceiver : BroadcastReceiver() {
             hiltEntryPoint.alarmRescheduler().refreshNextAlarmTime()
             // 每天自动核对一遍所有调度，防止 OEM 偷偷清掉闹钟
             alarmScheduler.scheduleSelfHealing()
+        }
+    }
+
+    // 响前 5 分钟提醒：读闹钟算出响铃时间，发一条不打扰的通知
+    private fun handlePreAlarmNotify(context: Context, intent: Intent, hiltEntryPoint: AlarmReceiverEntryPoint) {
+        val alarmId = intent.getLongExtra(EXTRA_ALARM_ID, -1L)
+        Log.i(TAG, "响前提醒: alarmId=$alarmId")
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val alarm = hiltEntryPoint.alarmRepository().getAlarm(alarmId)
+                if (alarm != null && alarm.isEnabled) {
+                    val fireTime = hiltEntryPoint.alarmScheduler().getNextTriggerTime(alarm)
+                    hiltEntryPoint.notificationHelper().showPreAlarmNotification(alarm.label ?: "", fireTime)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "响前提醒失败: ${e.message}", e)
+            }
         }
     }
 

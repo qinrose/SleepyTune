@@ -19,9 +19,11 @@ object RepositoryModule {
     @Provides
     @Singleton
     fun providePlaylistRepository(
+        @dagger.hilt.android.qualifiers.ApplicationContext context: android.content.Context,
         appDatabase: AppDatabase,
         dataSource: LocalMusicDataSource
     ): PlaylistRepository = PlaylistRepositoryImpl(
+        context = context,
         playlistDao = appDatabase.playlistDao(),
         musicDao = appDatabase.musicDao(),
         alarmDao = appDatabase.alarmDao(),

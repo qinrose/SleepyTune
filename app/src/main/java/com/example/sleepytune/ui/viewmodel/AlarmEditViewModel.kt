@@ -5,13 +5,16 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.sleepytune.R
 import com.example.sleepytune.data.local.entity.Alarm
 import com.example.sleepytune.data.local.entity.Playlist
 import com.example.sleepytune.data.repository.AlarmRepository
 import com.example.sleepytune.data.repository.PlaylistRepository
 import com.example.sleepytune.service.AlarmScheduler
 import com.example.sleepytune.utils.PermissionUtils
+import com.example.sleepytune.utils.TimeUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,17 +27,36 @@ import javax.inject.Inject
 
 @HiltViewModel
 class AlarmEditViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val alarmRepository: AlarmRepository,
     private val playlistRepository: PlaylistRepository,
     private val alarmScheduler: AlarmScheduler,
     private val alarmRescheduler: com.example.sleepytune.service.AlarmRescheduler
 ) : ViewModel() {
 
-    private val _alarm = MutableStateFlow(Alarm(hour = 8, minute = 0, playlistId = 0L))
+    // 新建闹钟默认"当前时间的下一个 5 分钟整点"（如 14:07 → 14:10），而非固定 8:00
+    private val _alarm = MutableStateFlow(
+        TimeUtils.nextFiveMinuteMark().let { (h, m) -> Alarm(hour = h, minute = m, playlistId = 0L) }
+    )
     val alarm: StateFlow<Alarm> = _alarm.asStateFlow()
 
     val playlists: StateFlow<List<Playlist>> = playlistRepository.observeAllPlaylists()
         .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // 每日随机歌单 id（用于在歌单选择列表里隐藏它）
+    private val _dailyRandomPlaylistId = MutableStateFlow(0L)
+    val dailyRandomPlaylistId: StateFlow<Long> = _dailyRandomPlaylistId.asStateFlow()
+
+    /** 刷新每日随机歌单（跨天自动换一批；force=true 手动换一批） */
+    fun refreshDailyRandomPlaylist(force: Boolean = false) {
+        viewModelScope.launch {
+            val name = context.getString(R.string.playlist_daily_random)
+            val id = playlistRepository.refreshDailyRandomPlaylist(name, force = force)
+            if (id != null && id > 0) {
+                _dailyRandomPlaylistId.value = id
+            }
+        }
+    }
 
     fun updateTime(hour: Int, minute: Int) {
         _alarm.value = _alarm.value.copy(hour = hour, minute = minute)
@@ -142,12 +164,22 @@ class AlarmEditViewModel @Inject constructor(
      * @return Pair(是否阻止保存, 提示消息)；null 消息表示校验通过
      */
     private suspend fun validateMusicSelection(alarm: Alarm, context: Context): Pair<Boolean, String?> {
-        if (alarm.playlistId <= 0) {
+        // 每日随机歌单：先确保当日歌单存在，再校验其中的歌曲
+        val songIds = if (alarm.playlistId == Alarm.DAILY_RANDOM_PLAYLIST_ID) {
+            val dailyId = playlistRepository.refreshDailyRandomPlaylist(
+                context.getString(R.string.playlist_daily_random)
+            )
+            if (dailyId == null) {
+                return Pair(false, "每日随机歌单生成失败，请稍后重试")
+            }
+            playlistRepository.getSongsInPlaylist(dailyId)
+        } else if (alarm.playlistId <= 0) {
             // 未绑定歌单：允许保存（用户可能有意用默认铃声），但明确提示
             return Pair(false, "未选择音乐歌单，响铃时将使用系统默认铃声")
+        } else {
+            playlistRepository.getSongsInPlaylist(alarm.playlistId)
         }
 
-        val songIds = playlistRepository.getSongsInPlaylist(alarm.playlistId)
         if (songIds.isEmpty()) {
             return Pair(true, "所选歌单为空，无法设置为闹钟音乐")
         }

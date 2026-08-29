@@ -17,6 +17,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -115,9 +116,19 @@ class AlarmAlertActivity : ComponentActivity() {
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // 系统栏图标明暗跟随主题（深色=白色图标，浅色=深色图标）
+            val darkTheme = (resources.configuration.uiMode and
+                android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
             window.insetsController?.apply {
-                setSystemBarsAppearance(0, android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS)
-                setSystemBarsAppearance(0, android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS)
+                setSystemBarsAppearance(
+                    if (darkTheme) 0 else android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS,
+                    android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+                )
+                setSystemBarsAppearance(
+                    if (darkTheme) 0 else android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
+                    android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                )
             }
         }
 
@@ -139,6 +150,43 @@ class AlarmAlertActivity : ComponentActivity() {
                 AlarmAlertScreen(alarmId = alarmId, alarmLabel = alarmLabel, snoozeEnabled = snoozeEnabled)
             }
         }
+    }
+
+    // 响铃期间的物理键交互（Google Clock 同款习惯）：
+    // 音量键 / 耳机线控键 = 贪睡（未启用贪睡则停止）；电源键 = 贪睡（设备相关，部分机型不派发）
+    override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent): Boolean {
+        if (AlarmPlaybackService.isPlaying()) {
+            when (keyCode) {
+                android.view.KeyEvent.KEYCODE_VOLUME_UP,
+                android.view.KeyEvent.KEYCODE_VOLUME_DOWN,
+                android.view.KeyEvent.KEYCODE_HEADSETHOOK -> {
+                    handleHardwareKeyAction()
+                    return true
+                }
+                android.view.KeyEvent.KEYCODE_POWER -> {
+                    // 屏幕已亮且本 Activity 为前台时，部分设备会派发电源键事件
+                    handleHardwareKeyAction()
+                    return true
+                }
+            }
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
+    // 物理键动作：贪睡或停止，并关闭响铃界面
+    private fun handleHardwareKeyAction() {
+        Log.i(TAG, "物理键操作: ${if (snoozeEnabled) "贪睡" else "停止"}")
+        if (snoozeEnabled) {
+            startService(Intent(this, AlarmPlaybackService::class.java).apply {
+                action = AlarmPlaybackService.ACTION_SNOOZE_ALARM
+            })
+        } else {
+            AlarmAlertActivity.setShouldFinish(true)
+            startService(Intent(this, AlarmPlaybackService::class.java).apply {
+                action = AlarmPlaybackService.ACTION_STOP_ALARM
+            })
+        }
+        finish()
     }
 
     private fun restoreAlarmPlayback() {
@@ -233,6 +281,8 @@ class AlarmAlertActivity : ComponentActivity() {
 @Composable
 fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) {
     val context = LocalContext.current
+    // 配色跟随应用主题（深色=深夜森林玻璃态，浅色=暖米纸杂志）
+    val cfg = AlarmColorConfig.forTheme(isSystemInDarkTheme())
 
     var songTitle by remember { mutableStateOf("") }
     var songArtist by remember { mutableStateOf("") }
@@ -248,11 +298,13 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
     val activity = context as? AlarmAlertActivity
     val view = LocalView.current
 
-    // 确保主题没有把状态栏/导航栏重新涂成不透明色，保持真正 edge-to-edge
+    // 确保主题没有把状态栏/导航栏重新涂成不透明色，保持真正 edge-to-edge；
+    // 图标明暗跟随主题
+    val darkTheme = isSystemInDarkTheme()
     SideEffect {
         val window = (view.context as? android.app.Activity)?.window ?: return@SideEffect
-        WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
-        WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = false
+        WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+        WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !darkTheme
     }
 
     LaunchedEffect(Unit) {
@@ -338,8 +390,8 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        AlarmColorConfig.BackgroundTop,
-                        AlarmColorConfig.BackgroundBottom
+                        cfg.BackgroundTop,
+                        cfg.BackgroundBottom
                     )
                 )
             )
@@ -359,7 +411,7 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
                 letterSpacing = 4.sp,
-                color = AlarmColorConfig.TextAccent
+                color = cfg.TextAccent
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
@@ -367,7 +419,7 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                 fontFamily = FontFamily.Serif,
                 fontSize = 30.sp,
                 fontWeight = FontWeight.Bold,
-                color = AlarmColorConfig.TextPrimary,
+                color = cfg.TextPrimary,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -376,7 +428,7 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                     .fillMaxWidth()
                     .padding(top = 12.dp, bottom = 4.dp)
                     .height(1.dp)
-                    .background(AlarmColorConfig.CardBorder)
+                    .background(cfg.CardBorder)
             )
 
             Spacer(modifier = Modifier.weight(1f))
@@ -388,13 +440,13 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                 fontSize = 96.sp,
                 fontWeight = FontWeight.Light,
                 letterSpacing = 2.sp,
-                color = AlarmColorConfig.TextPrimary
+                color = cfg.TextPrimary
             )
             Text(
                 text = "$currentDate  ·  $currentWeekday",
                 fontFamily = FontFamily.Serif,
                 fontSize = 18.sp,
-                color = AlarmColorConfig.TextSecondary
+                color = cfg.TextSecondary
             )
 
             Spacer(modifier = Modifier.weight(1f))
@@ -433,12 +485,12 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                             activity?.finish()
                         },
                         shape = RoundedCornerShape(18.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, AlarmColorConfig.CardBorder),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, cfg.CardBorder),
                         modifier = Modifier.weight(1f).height(54.dp)
                     ) {
-                        Icon(Icons.Default.Snooze, null, modifier = Modifier.size(20.dp), tint = AlarmColorConfig.TextPrimary)
+                        Icon(Icons.Default.Snooze, null, modifier = Modifier.size(20.dp), tint = cfg.TextPrimary)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(stringResource(R.string.alarm_snooze), color = AlarmColorConfig.TextPrimary)
+                        Text(stringResource(R.string.alarm_snooze), color = cfg.TextPrimary)
                     }
 
                     Button(
@@ -450,7 +502,7 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                             activity?.finish()
                         },
                         shape = RoundedCornerShape(18.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = AlarmColorConfig.ButtonDanger),
+                        colors = ButtonDefaults.buttonColors(containerColor = cfg.ButtonDanger),
                         modifier = Modifier.weight(1.4f).height(54.dp)
                     ) {
                         Icon(Icons.Default.Stop, null, modifier = Modifier.size(20.dp), tint = Color.White)
@@ -468,7 +520,7 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                         activity?.finish()
                     },
                     shape = RoundedCornerShape(18.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = AlarmColorConfig.ButtonDanger),
+                    colors = ButtonDefaults.buttonColors(containerColor = cfg.ButtonDanger),
                     modifier = Modifier.fillMaxWidth().height(54.dp)
                 ) {
                     Icon(Icons.Default.Stop, null, modifier = Modifier.size(20.dp), tint = Color.White)
@@ -488,12 +540,12 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                         if (showVibrationControls) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
-                        tint = AlarmColorConfig.TextSecondary
+                        tint = cfg.TextSecondary
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         if (showVibrationControls) stringResource(R.string.alarm_pause_vibrate) else "震动控制",
-                        color = AlarmColorConfig.TextSecondary
+                        color = cfg.TextSecondary
                     )
                 }
                 AnimatedVisibility(
@@ -513,12 +565,12 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                                 isVibrating = false
                             },
                             shape = RoundedCornerShape(16.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, AlarmColorConfig.CardBorder),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, cfg.CardBorder),
                             modifier = Modifier.weight(1f).height(44.dp)
                         ) {
-                            Icon(Icons.Default.Pause, null, modifier = Modifier.size(18.dp), tint = AlarmColorConfig.TextSecondary)
+                            Icon(Icons.Default.Pause, null, modifier = Modifier.size(18.dp), tint = cfg.TextSecondary)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text(stringResource(R.string.alarm_pause_vibrate), color = AlarmColorConfig.TextSecondary, fontSize = 13.sp)
+                            Text(stringResource(R.string.alarm_pause_vibrate), color = cfg.TextSecondary, fontSize = 13.sp)
                         }
                         OutlinedButton(
                             onClick = {
@@ -528,12 +580,12 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                                 isVibrating = false
                             },
                             shape = RoundedCornerShape(16.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, AlarmColorConfig.CardBorder),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, cfg.CardBorder),
                             modifier = Modifier.weight(1f).height(44.dp)
                         ) {
-                            Icon(Icons.Default.Vibration, null, modifier = Modifier.size(18.dp), tint = AlarmColorConfig.TextSecondary)
+                            Icon(Icons.Default.Vibration, null, modifier = Modifier.size(18.dp), tint = cfg.TextSecondary)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text(stringResource(R.string.alarm_stop_vibrate), color = AlarmColorConfig.TextSecondary, fontSize = 13.sp)
+                            Text(stringResource(R.string.alarm_stop_vibrate), color = cfg.TextSecondary, fontSize = 13.sp)
                         }
                     }
                 }
@@ -544,10 +596,11 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
 
 @Composable
 private fun PlaybackWarningBanner(text: String) {
+    val cfg = AlarmColorConfig.forTheme(isSystemInDarkTheme())
     Surface(
         shape = RoundedCornerShape(14.dp),
-        color = AlarmColorConfig.WarningBackground,
-        border = androidx.compose.foundation.BorderStroke(1.dp, AlarmColorConfig.WarningBorder),
+        color = cfg.WarningBackground,
+        border = androidx.compose.foundation.BorderStroke(1.dp, cfg.WarningBorder),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -562,7 +615,7 @@ private fun PlaybackWarningBanner(text: String) {
             Text(
                 text = "已改用系统默认铃声：$text",
                 style = MaterialTheme.typography.bodyMedium,
-                color = AlarmColorConfig.WarningText,
+                color = cfg.WarningText,
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis
             )
@@ -572,10 +625,11 @@ private fun PlaybackWarningBanner(text: String) {
 
 @Composable
 private fun MagazineSongCard(title: String, artist: String, onNextSong: () -> Unit) {
+    val cfg = AlarmColorConfig.forTheme(isSystemInDarkTheme())
     Surface(
         shape = RoundedCornerShape(20.dp),
-        color = AlarmColorConfig.CardBackground,
-        border = androidx.compose.foundation.BorderStroke(1.dp, AlarmColorConfig.CardBorder),
+        color = cfg.CardBackground,
+        border = androidx.compose.foundation.BorderStroke(1.dp, cfg.CardBorder),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -588,7 +642,7 @@ private fun MagazineSongCard(title: String, artist: String, onNextSong: () -> Un
                     fontFamily = FontFamily.Serif,
                     fontSize = 11.sp,
                     letterSpacing = 2.sp,
-                    color = AlarmColorConfig.TextAccent
+                    color = cfg.TextAccent
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
@@ -596,7 +650,7 @@ private fun MagazineSongCard(title: String, artist: String, onNextSong: () -> Un
                     fontFamily = FontFamily.Serif,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = AlarmColorConfig.TextPrimary,
+                    color = cfg.TextPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -604,7 +658,7 @@ private fun MagazineSongCard(title: String, artist: String, onNextSong: () -> Un
                     Text(
                         text = artist,
                         fontSize = 14.sp,
-                        color = AlarmColorConfig.TextSecondary,
+                        color = cfg.TextSecondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -614,8 +668,8 @@ private fun MagazineSongCard(title: String, artist: String, onNextSong: () -> Un
             FloatingActionButton(
                 onClick = onNextSong,
                 shape = RoundedCornerShape(16.dp),
-                containerColor = AlarmColorConfig.ButtonPrimary,
-                contentColor = AlarmColorConfig.TextPrimary,
+                containerColor = cfg.ButtonPrimary,
+                contentColor = cfg.TextPrimary,
                 modifier = Modifier.size(48.dp)
             ) {
                 Icon(Icons.Default.SkipNext, contentDescription = "下一首", modifier = Modifier.size(22.dp))

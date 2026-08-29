@@ -21,10 +21,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.sleepytune.R
 import com.example.sleepytune.data.local.entity.Alarm
+import com.example.sleepytune.ui.theme.SleepyTuneTheme
 import com.example.sleepytune.ui.viewmodel.AlarmListViewModel
 import com.example.sleepytune.ui.viewmodel.TimeFormatViewModel
 import com.example.sleepytune.utils.TimeFormatHelper
@@ -37,7 +39,30 @@ fun AlarmListScreen(navController: NavController) {
     val timeFormatViewModel: TimeFormatViewModel = hiltViewModel()
     val alarms by viewModel.alarms.collectAsState()
     val timeFormat by timeFormatViewModel.timeFormat.collectAsState()
+    // 12/24 小时制跟随设置（AUTO 跟随系统）
+    val is24Hour = remember(timeFormat) { timeFormatViewModel.is24Hour() }
 
+    AlarmListContent(
+        alarms = alarms,
+        is24Hour = is24Hour,
+        onAddClick = { navController.navigate("alarmEdit") },
+        onAlarmClick = { alarm -> navController.navigate("alarmEdit/${alarm.id}") },
+        onToggle = { alarm -> viewModel.toggleAlarm(alarm) },
+        onDelete = { alarm -> viewModel.deleteAlarm(alarm) }
+    )
+}
+
+// 无状态内容：状态与导航回调由上层注入，便于 @Preview 与测试
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AlarmListContent(
+    alarms: List<Alarm>,
+    is24Hour: Boolean,
+    onAddClick: () -> Unit,
+    onAlarmClick: (Alarm) -> Unit,
+    onToggle: (Alarm) -> Unit,
+    onDelete: (Alarm) -> Unit
+) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
@@ -49,7 +74,7 @@ fun AlarmListScreen(navController: NavController) {
                 enter = scaleIn(animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)) + fadeIn(tween(200))
             ) {
                 ExtendedFloatingActionButton(
-                    onClick = { navController.navigate("alarmEdit") },
+                    onClick = onAddClick,
                     icon = { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp)) },
                     text = { Text(stringResource(R.string.alarm_add), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium) },
                     shape = RoundedCornerShape(16.dp),
@@ -63,7 +88,7 @@ fun AlarmListScreen(navController: NavController) {
         if (alarms.isEmpty()) {
             EmptyAlarmState(
                 modifier = Modifier.fillMaxSize().padding(paddingValues),
-                onAddClick = { navController.navigate("alarmEdit") }
+                onAddClick = onAddClick
             )
         } else {
             LazyColumn(
@@ -102,10 +127,10 @@ fun AlarmListScreen(navController: NavController) {
                     ) {
                         AlarmCard(
                             alarm = alarm,
-                            timeFormat = timeFormat,
-                            onToggle = { viewModel.toggleAlarm(alarm) },
-                            onDelete = { viewModel.deleteAlarm(alarm) },
-                            onClick = { navController.navigate("alarmEdit/${alarm.id}") }
+                            is24Hour = is24Hour,
+                            onToggle = { onToggle(alarm) },
+                            onDelete = { onDelete(alarm) },
+                            onClick = { onAlarmClick(alarm) }
                         )
                     }
                 }
@@ -167,7 +192,7 @@ private fun EmptyAlarmState(modifier: Modifier = Modifier, onAddClick: () -> Uni
 @Composable
 private fun AlarmCard(
     alarm: Alarm, 
-    timeFormat: TimeFormatViewModel.TimeFormat,
+    is24Hour: Boolean,
     onToggle: () -> Unit, 
     onDelete: () -> Unit, 
     onClick: () -> Unit
@@ -206,7 +231,7 @@ private fun AlarmCard(
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        TimeFormatHelper.formatTime(alarm.hour, alarm.minute, timeFormat),
+                        TimeFormatHelper.formatTime(alarm.hour, alarm.minute, is24Hour),
                         style = MaterialTheme.typography.displayMedium.copy(
                             fontWeight = FontWeight.Light,
                             letterSpacing = (-0.5).sp
@@ -305,6 +330,39 @@ private fun AlarmCard(
             shape = RoundedCornerShape(20.dp),
             containerColor = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp
+        )
+    }
+}
+
+// ---------- @Preview ----------
+
+@Preview(showBackground = true, name = "闹钟列表（有数据）", locale = "zh")
+@Composable
+private fun AlarmListPreview() {
+    SleepyTuneTheme {
+        AlarmListContent(
+            alarms = listOf(
+                Alarm(id = 1, hour = 7, minute = 30, label = "起床啦", repeatDays = setOf(1, 2, 3, 4, 5),
+                    vibrate = true, snoozeEnabled = true, snoozeMinutes = 5, volume = 0.8f),
+                Alarm(id = 2, hour = 22, minute = 45, label = "睡前放松", repeatDays = null, isEnabled = false,
+                    vibrate = false, snoozeEnabled = false, volume = 0.5f),
+                Alarm(id = 3, hour = 6, minute = 0, label = null, repeatDays = setOf(6, 7),
+                    vibrate = true, snoozeEnabled = true, snoozeMinutes = 10, volume = 1.0f)
+            ),
+            is24Hour = true,
+            onAddClick = {}, onAlarmClick = {}, onToggle = {}, onDelete = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "闹钟列表（空）")
+@Composable
+private fun EmptyAlarmListPreview() {
+    SleepyTuneTheme {
+        AlarmListContent(
+            alarms = emptyList(),
+            is24Hour = false,
+            onAddClick = {}, onAlarmClick = {}, onToggle = {}, onDelete = {}
         )
     }
 }

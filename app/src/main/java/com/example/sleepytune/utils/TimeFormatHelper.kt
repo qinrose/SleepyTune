@@ -3,7 +3,22 @@ package com.example.sleepytune.utils
 import com.example.sleepytune.ui.viewmodel.TimeFormatViewModel
 
 object TimeFormatHelper {
-    
+
+    // 格式化时间显示（已解析 12/24 制，AUTO 由上层解析为布尔）
+    fun formatTime(hour: Int, minute: Int, is24Hour: Boolean): String {
+        return if (is24Hour) {
+            String.format("%02d:%02d", hour, minute)
+        } else {
+            val displayHour = when (hour) {
+                0 -> 12
+                in 1..12 -> hour
+                else -> hour - 12
+            }
+            val period = if (hour < 12) "AM" else "PM"
+            String.format("%02d:%02d %s", displayHour, minute, period)
+        }
+    }
+
     // 格式化时间显示
     fun formatTime(hour: Int, minute: Int, timeFormat: TimeFormatViewModel.TimeFormat): String {
         return when (timeFormat) {
@@ -20,6 +35,10 @@ object TimeFormatHelper {
                 }
                 String.format("%02d:%02d %s", displayHour, minute, period)
             }
+            TimeFormatViewModel.TimeFormat.AUTO -> {
+                // 需要系统上下文：调用方应使用 is24Hour 重载；此处兜底走 24 小时制
+                String.format("%02d:%02d", hour, minute)
+            }
         }
     }
     
@@ -34,6 +53,7 @@ object TimeFormatHelper {
                     else -> hour - 12
                 }
             }
+            TimeFormatViewModel.TimeFormat.AUTO -> hour
         }
     }
     

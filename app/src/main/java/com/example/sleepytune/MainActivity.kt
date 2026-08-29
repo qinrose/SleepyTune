@@ -23,6 +23,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -105,7 +106,13 @@ fun MainApp() {
         else -> isSystemInDarkTheme() // MODE_NIGHT_FOLLOW_SYSTEM
     }
 
-    SleepyTuneTheme(darkTheme = darkTheme) {
+    // 动态取色开关（设置页可关，Android 12+ 生效）
+    val themeViewModel: com.example.sleepytune.ui.viewmodel.ThemeViewModel = hiltViewModel()
+    val dynamicColor by themeViewModel.dynamicColor.collectAsState()
+
+    // edgeToEdge：系统栏透明、内容延伸到底；各页面 Scaffold/TopAppBar 自带 inset，
+    // 内容不会顶到状态栏
+    SleepyTuneTheme(darkTheme = darkTheme, dynamicColor = dynamicColor, edgeToEdge = true) {
         MainAppContent()
     }
 }

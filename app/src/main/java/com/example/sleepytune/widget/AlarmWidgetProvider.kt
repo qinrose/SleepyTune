@@ -89,14 +89,19 @@ class AlarmWidgetProvider : AppWidgetProvider() {
                 
                 val nextAlarm = findNextAlarm(enabledAlarms)
                 
-                // 读取时间制设置
+                // 读取时间制设置（AUTO = 跟随系统）
                 val prefs = context.getSharedPreferences("time_format_settings", Context.MODE_PRIVATE)
-                val savedFormat = prefs.getString("time_format", TimeFormatViewModel.TimeFormat.HOUR_24.name) 
-                    ?: TimeFormatViewModel.TimeFormat.HOUR_24.name
-                val timeFormat = try {
-                    TimeFormatViewModel.TimeFormat.valueOf(savedFormat)
+                val savedFormat = prefs.getString("time_format", TimeFormatViewModel.TimeFormat.AUTO.name)
+                    ?: TimeFormatViewModel.TimeFormat.AUTO.name
+                val is24Hour = try {
+                    when (TimeFormatViewModel.TimeFormat.valueOf(savedFormat)) {
+                        TimeFormatViewModel.TimeFormat.HOUR_24 -> true
+                        TimeFormatViewModel.TimeFormat.HOUR_12 -> false
+                        TimeFormatViewModel.TimeFormat.AUTO ->
+                            android.text.format.DateFormat.is24HourFormat(context)
+                    }
                 } catch (_: IllegalArgumentException) {
-                    TimeFormatViewModel.TimeFormat.HOUR_24
+                    android.text.format.DateFormat.is24HourFormat(context)
                 }
                 
                 // 创建RemoteViews
@@ -105,7 +110,7 @@ class AlarmWidgetProvider : AppWidgetProvider() {
                 if (nextAlarm != null) {
                     views.setTextViewText(
                         R.id.tv_next_alarm_time,
-                        TimeFormatHelper.formatTime(nextAlarm.hour, nextAlarm.minute, timeFormat)
+                        TimeFormatHelper.formatTime(nextAlarm.hour, nextAlarm.minute, is24Hour)
                     )
                     views.setTextViewText(
                         R.id.tv_alarm_label,

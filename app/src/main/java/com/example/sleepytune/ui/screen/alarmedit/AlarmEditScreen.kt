@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -50,16 +51,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.sleepytune.R
+import com.example.sleepytune.data.local.entity.Alarm
 import com.example.sleepytune.ui.component.TimePickerWheel
 import com.example.sleepytune.ui.component.QuickRepeatOptions
 import com.example.sleepytune.ui.component.WeekDaySelector
+import com.example.sleepytune.ui.component.CardEntrance
+import com.example.sleepytune.ui.theme.SleepyTuneTheme
 import com.example.sleepytune.ui.viewmodel.AlarmEditViewModel
 import com.example.sleepytune.ui.viewmodel.TimeFormatViewModel
 
@@ -70,8 +76,12 @@ fun AlarmEditScreen(navController: NavController, alarmId: Long?) {
     val timeFormatViewModel: TimeFormatViewModel = hiltViewModel()
     val alarm by viewModel.alarm.collectAsState()
     val playlists by viewModel.playlists.collectAsState()
+    val dailyRandomPlaylistId by viewModel.dailyRandomPlaylistId.collectAsState()
     val timeFormat by timeFormatViewModel.timeFormat.collectAsState()
     val context = LocalContext.current
+
+    // 进入编辑页时确保每日随机歌单已生成（供右上角开关直接启用）
+    LaunchedEffect(Unit) { viewModel.refreshDailyRandomPlaylist() }
 
     var hour by remember { mutableIntStateOf(alarm.hour) }
     var minute by remember { mutableIntStateOf(alarm.minute) }
@@ -87,82 +97,154 @@ fun AlarmEditScreen(navController: NavController, alarmId: Long?) {
     var fadeInEnabled by remember { mutableStateOf(alarm.fadeInEnabled) }
     var fadeInDuration by remember { mutableIntStateOf(alarm.fadeInDuration) }
 
-    LaunchedEffect(alarmId, alarm) {
+    // 仅当闹钟已加载（编辑已有闹钟）时同步本地状态；
+    // 新建闹钟直接用 ViewModel 的"当前时间"默认值，避免把编辑中的内容覆盖回默认值
+    LaunchedEffect(alarmId, alarm.id) {
         if (alarmId != null) viewModel.loadAlarm(alarmId)
-        hour = alarm.hour
-        minute = alarm.minute
-        label = alarm.label ?: ""
-        selectedPlaylistId = alarm.playlistId
-        vibrate = alarm.vibrate
-        vibrateDelayMinutes = alarm.vibrateDelayMinutes
-        snoozeEnabled = alarm.snoozeEnabled
-        snoozeMinutes = alarm.snoozeMinutes
-        repeatDays = alarm.repeatDays ?: emptySet()
-        volume = alarm.volume
-        shuffleMode = alarm.shuffleMode
-        fadeInEnabled = alarm.fadeInEnabled
-        fadeInDuration = alarm.fadeInDuration
+        if (alarm.id != 0L) {
+            hour = alarm.hour
+            minute = alarm.minute
+            label = alarm.label ?: ""
+            selectedPlaylistId = alarm.playlistId
+            vibrate = alarm.vibrate
+            vibrateDelayMinutes = alarm.vibrateDelayMinutes
+            snoozeEnabled = alarm.snoozeEnabled
+            snoozeMinutes = alarm.snoozeMinutes
+            repeatDays = alarm.repeatDays ?: emptySet()
+            volume = alarm.volume
+            shuffleMode = alarm.shuffleMode
+            fadeInEnabled = alarm.fadeInEnabled
+            fadeInDuration = alarm.fadeInDuration
+        }
     }
 
+    // 预览/保存前，把本地编辑推送到 ViewModel
+    val pushToViewModel: () -> Unit = {
+        viewModel.updateTime(hour, minute)
+        viewModel.setPlaylist(selectedPlaylistId)
+        viewModel.setRepeatDays(repeatDays)
+        viewModel.setVibrate(vibrate)
+        viewModel.setVibrateDelayMinutes(vibrateDelayMinutes)
+        viewModel.setSnoozeEnabled(snoozeEnabled)
+        viewModel.setSnoozeMinutes(snoozeMinutes)
+        viewModel.setLabel(if (label.isBlank()) null else label)
+        viewModel.setVolume(volume)
+        viewModel.setShuffleMode(shuffleMode)
+        viewModel.setFadeInEnabled(fadeInEnabled)
+        viewModel.setFadeInDuration(fadeInDuration)
+    }
+
+    // 12/24 小时制跟随设置（设置页可改；AUTO 跟随系统）
+    val is24Hour = remember(timeFormat) { timeFormatViewModel.is24Hour() }
+
+    AlarmEditContent(
+        isEditing = alarmId != null,
+        hour = hour,
+        minute = minute,
+        is24Hour = is24Hour,
+        onTimeChanged = { h, m -> hour = h; minute = m },
+        label = label,
+        onLabelChange = { label = it },
+        repeatDays = repeatDays,
+        onDaysChanged = { repeatDays = it },
+        playlists = playlists,
+        dailyRandomPlaylistId = dailyRandomPlaylistId,
+        selectedPlaylistId = selectedPlaylistId,
+        shuffleMode = shuffleMode,
+        onPlaylistSelected = { selectedPlaylistId = it },
+        onShuffleModeChanged = { shuffleMode = it },
+        vibrate = vibrate,
+        vibrateDelayMinutes = vibrateDelayMinutes,
+        onVibrateChange = { vibrate = it },
+        onDelayChange = { vibrateDelayMinutes = it },
+        snoozeEnabled = snoozeEnabled,
+        snoozeMinutes = snoozeMinutes,
+        onSnoozeChange = { snoozeEnabled = it },
+        onSnoozeMinutesChange = { snoozeMinutes = it },
+        volume = volume,
+        fadeInEnabled = fadeInEnabled,
+        fadeInDuration = fadeInDuration,
+        onVolumeChange = { volume = it },
+        onFadeInChange = { fadeInEnabled = it },
+        onFadeInDurationChange = { fadeInDuration = it },
+        onPreview = {
+            pushToViewModel()
+            previewAlarm(
+                context = context,
+                playlistId = selectedPlaylistId,
+                label = if (label.isBlank()) context.getString(R.string.confirm_preview) else label,
+                vibrate = vibrate,
+                vibrateDelayMinutes = vibrateDelayMinutes,
+                volume = volume,
+                shuffleMode = shuffleMode,
+                fadeInEnabled = fadeInEnabled,
+                fadeInDuration = fadeInDuration,
+                snoozeEnabled = snoozeEnabled,
+                snoozeMinutes = snoozeMinutes
+            )
+        },
+        onSave = {
+            pushToViewModel()
+            // 校验失败（歌单无可用音乐）时不返回上一页
+            viewModel.saveAlarm(context) { saved ->
+                if (saved) navController.popBackStack()
+            }
+        },
+        onBack = { navController.popBackStack() }
+    )
+}
+
+// 无状态内容：状态与回调由上层注入，便于 @Preview 与测试
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AlarmEditContent(
+    isEditing: Boolean,
+    hour: Int,
+    minute: Int,
+    is24Hour: Boolean,
+    onTimeChanged: (Int, Int) -> Unit,
+    label: String,
+    onLabelChange: (String) -> Unit,
+    repeatDays: Set<Int>,
+    onDaysChanged: (Set<Int>) -> Unit,
+    playlists: List<com.example.sleepytune.data.local.entity.Playlist>,
+    dailyRandomPlaylistId: Long = 0L,
+    selectedPlaylistId: Long,
+    shuffleMode: Boolean,
+    onPlaylistSelected: (Long) -> Unit,
+    onShuffleModeChanged: (Boolean) -> Unit,
+    vibrate: Boolean,
+    vibrateDelayMinutes: Int,
+    onVibrateChange: (Boolean) -> Unit,
+    onDelayChange: (Int) -> Unit,
+    snoozeEnabled: Boolean,
+    snoozeMinutes: Int,
+    onSnoozeChange: (Boolean) -> Unit,
+    onSnoozeMinutesChange: (Int) -> Unit,
+    volume: Float,
+    fadeInEnabled: Boolean,
+    fadeInDuration: Int,
+    onVolumeChange: (Float) -> Unit,
+    onFadeInChange: (Boolean) -> Unit,
+    onFadeInDurationChange: (Int) -> Unit,
+    onPreview: () -> Unit,
+    onSave: () -> Unit,
+    onBack: () -> Unit
+) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (alarmId != null) stringResource(R.string.alarm_edit) else stringResource(R.string.alarm_add)) },
+                title = { Text(if (isEditing) stringResource(R.string.alarm_edit) else stringResource(R.string.alarm_add)) },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
+                    IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.confirm_cancel))
                     }
                 },
                 actions = {
-                    TextButton(onClick = {
-                        // 预览前先更新 ViewModel 设置，确保预览使用最新值
-                        viewModel.updateTime(hour, minute)
-                        viewModel.setPlaylist(selectedPlaylistId)
-                        viewModel.setRepeatDays(repeatDays)
-                        viewModel.setVibrate(vibrate)
-                        viewModel.setVibrateDelayMinutes(vibrateDelayMinutes)
-                        viewModel.setSnoozeEnabled(snoozeEnabled)
-                        viewModel.setSnoozeMinutes(snoozeMinutes)
-                        viewModel.setLabel(if (label.isBlank()) null else label)
-                        viewModel.setVolume(volume)
-                        viewModel.setShuffleMode(shuffleMode)
-                        viewModel.setFadeInEnabled(fadeInEnabled)
-                        viewModel.setFadeInDuration(fadeInDuration)
-                        
-                        previewAlarm(
-                            context = context,
-                            playlistId = selectedPlaylistId,
-                            label = if (label.isBlank()) context.getString(R.string.confirm_preview) else label,
-                            vibrate = vibrate,
-                            vibrateDelayMinutes = vibrateDelayMinutes,
-                            volume = volume,
-                            shuffleMode = shuffleMode,
-                            fadeInEnabled = fadeInEnabled,
-                            fadeInDuration = fadeInDuration,
-                            snoozeEnabled = snoozeEnabled,
-                            snoozeMinutes = snoozeMinutes
-                        )
-                    }) {
+                    TextButton(onClick = onPreview) {
                         Text(stringResource(R.string.confirm_preview))
                     }
-                    TextButton(onClick = {
-                        viewModel.updateTime(hour, minute)
-                        viewModel.setPlaylist(selectedPlaylistId)
-                        viewModel.setRepeatDays(repeatDays)
-                        viewModel.setVibrate(vibrate)
-                        viewModel.setVibrateDelayMinutes(vibrateDelayMinutes)
-                        viewModel.setSnoozeEnabled(snoozeEnabled)
-                        viewModel.setSnoozeMinutes(snoozeMinutes)
-                        viewModel.setLabel(if (label.isBlank()) null else label)
-                        viewModel.setVolume(volume)
-                        viewModel.setShuffleMode(shuffleMode)
-                        viewModel.setFadeInEnabled(fadeInEnabled)
-                        viewModel.setFadeInDuration(fadeInDuration)
-                        // 校验失败（歌单无可用音乐）时不返回上一页
-                        viewModel.saveAlarm(context) { saved ->
-                            if (saved) navController.popBackStack()
-                        }
-                    }) {
+                    TextButton(onClick = onSave) {
                         Text(stringResource(R.string.confirm_save))
                     }
                 },
@@ -179,20 +261,19 @@ fun AlarmEditScreen(navController: NavController, alarmId: Long?) {
             TimePickerCard(
                 hour = hour, 
                 minute = minute, 
-                is24Hour = timeFormat == TimeFormatViewModel.TimeFormat.HOUR_24,
-                onTimeChanged = { h, m -> hour = h; minute = m },
-                onToggleTimeFormat = { timeFormatViewModel.toggleTimeFormat() }
+                is24Hour = is24Hour,
+                onTimeChanged = onTimeChanged
             )
-            LabelCard(label) { label = it }
-            RepeatCard(repeatDays) { repeatDays = it }
-            PlaylistCard(playlists, selectedPlaylistId, shuffleMode,
-                { selectedPlaylistId = it }, { shuffleMode = it })
+            LabelCard(label, onLabelChange, index = 1)
+            RepeatCard(repeatDays, onDaysChanged, index = 2)
+            PlaylistCard(playlists, dailyRandomPlaylistId, selectedPlaylistId, shuffleMode,
+                onPlaylistSelected, onShuffleModeChanged, index = 3)
             VibrateCard(vibrate, vibrateDelayMinutes,
-                { vibrate = it }, { vibrateDelayMinutes = it })
+                onVibrateChange, onDelayChange, index = 4)
             SettingsCard(snoozeEnabled, snoozeMinutes,
-                { snoozeEnabled = it }, { snoozeMinutes = it })
+                onSnoozeChange, onSnoozeMinutesChange, index = 5)
             VolumeCard(volume, fadeInEnabled, fadeInDuration,
-                { volume = it }, { fadeInEnabled = it }, { fadeInDuration = it })
+                onVolumeChange, onFadeInChange, onFadeInDurationChange, index = 6)
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
@@ -203,39 +284,10 @@ private fun TimePickerCard(
     hour: Int, 
     minute: Int, 
     is24Hour: Boolean,
-    onTimeChanged: (Int, Int) -> Unit,
-    onToggleTimeFormat: () -> Unit
+    onTimeChanged: (Int, Int) -> Unit
 ) {
-    FlatCard(title = stringResource(R.string.alarm_title)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = if (is24Hour) stringResource(R.string.time_format_24h) else stringResource(R.string.time_format_12h),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = if (is24Hour) stringResource(R.string.time_format_24h_desc) else stringResource(R.string.time_format_12h_desc),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Switch(
-                checked = is24Hour,
-                onCheckedChange = { onToggleTimeFormat() },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = MaterialTheme.colorScheme.primary,
-                    checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                    uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            )
-        }
-        Spacer(modifier = Modifier.height(8.dp))
+    // 时间制切换已移到设置页（12/24/跟随系统）
+    FlatCard(title = stringResource(R.string.alarm_title), index = 0) {
         TimePickerWheel(
             initialHour = hour, 
             initialMinute = minute, 
@@ -246,8 +298,8 @@ private fun TimePickerCard(
 }
 
 @Composable
-private fun LabelCard(label: String, onLabelChange: (String) -> Unit) {
-    FlatCard(title = stringResource(R.string.alarm_label)) {
+private fun LabelCard(label: String, onLabelChange: (String) -> Unit, index: Int = 0) {
+    FlatCard(title = stringResource(R.string.alarm_label), index = index) {
         TextField(
             value = label,
             onValueChange = onLabelChange,
@@ -265,8 +317,8 @@ private fun LabelCard(label: String, onLabelChange: (String) -> Unit) {
 }
 
 @Composable
-private fun RepeatCard(repeatDays: Set<Int>, onDaysChanged: (Set<Int>) -> Unit) {
-    FlatCard(title = stringResource(R.string.alarm_repeat)) {
+private fun RepeatCard(repeatDays: Set<Int>, onDaysChanged: (Set<Int>) -> Unit, index: Int = 0) {
+    FlatCard(title = stringResource(R.string.alarm_repeat), index = index) {
         QuickRepeatOptions(selectedDays = repeatDays, onDaysChanged = onDaysChanged)
         Spacer(modifier = Modifier.height(12.dp))
         WeekDaySelector(selectedDays = repeatDays, onDaysChanged = onDaysChanged)
@@ -276,23 +328,69 @@ private fun RepeatCard(repeatDays: Set<Int>, onDaysChanged: (Set<Int>) -> Unit) 
 @Composable
 private fun PlaylistCard(
     playlists: List<com.example.sleepytune.data.local.entity.Playlist>,
+    dailyRandomPlaylistId: Long = 0L,
     selectedPlaylistId: Long,
     shuffleMode: Boolean,
     onPlaylistSelected: (Long) -> Unit,
-    onShuffleModeChanged: (Boolean) -> Unit
+    onShuffleModeChanged: (Boolean) -> Unit,
+    index: Int = 0
 ) {
-    FlatCard(title = stringResource(R.string.alarm_playlist)) {
+    val isDailyRandom = selectedPlaylistId == Alarm.DAILY_RANDOM_PLAYLIST_ID
+    // 记住切换开关前的普通歌单，关闭每日随机时恢复
+    var lastRegularId by remember(playlists) {
+        mutableLongStateOf(playlists.firstOrNull()?.id ?: 0L)
+    }
+
+    FlatCard(
+        title = stringResource(R.string.alarm_playlist),
+        index = index,
+        trailing = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.alarm_daily_random),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (isDailyRandom) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Switch(
+                    checked = isDailyRandom,
+                    onCheckedChange = { on ->
+                        if (on) {
+                            lastRegularId = selectedPlaylistId.takeIf { it > 0 }
+                                ?: playlists.firstOrNull()?.id ?: 0L
+                            onPlaylistSelected(Alarm.DAILY_RANDOM_PLAYLIST_ID)
+                        } else {
+                            val target = lastRegularId.takeIf { it > 0 }
+                                ?: playlists.firstOrNull()?.id ?: 0L
+                            onPlaylistSelected(target)
+                        }
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                        checkedThumbColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                )
+            }
+        }
+    ) {
         if (playlists.isEmpty()) {
             Text(stringResource(R.string.playlist_empty_hint), color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
-            playlists.forEach { playlist ->
+            // 每日随机歌单不在列表里重复展示（右上角开关已代表它）
+            val visiblePlaylists = playlists.filter { it.id != dailyRandomPlaylistId }
+            visiblePlaylists.forEach { playlist ->
                 Row(
-                    modifier = Modifier.fillMaxWidth().clickable { onPlaylistSelected(playlist.id) }
-                        .padding(vertical = 10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .alpha(if (isDailyRandom) 0.35f else 1f)
+                        .clickable(enabled = !isDailyRandom) { onPlaylistSelected(playlist.id) }
+                        .padding(horizontal = 4.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (selectedPlaylistId == playlist.id) {
-                        Icon(Icons.Default.Check, "selected", tint = MaterialTheme.colorScheme.primary)
+                    if (!isDailyRandom && selectedPlaylistId == playlist.id) {
+                        Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     } else {
                         Spacer(modifier = Modifier.width(24.dp))
                     }
@@ -300,7 +398,15 @@ private fun PlaylistCard(
                     Text(playlist.name, style = MaterialTheme.typography.bodyLarge)
                 }
             }
-            if (selectedPlaylistId > 0) {
+            if (isDailyRandom) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    stringResource(R.string.alarm_daily_random_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            if (!isDailyRandom && selectedPlaylistId > 0) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(stringResource(R.string.playback_order), style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.secondary)
@@ -317,7 +423,7 @@ private fun PlaylistCard(
 @Composable
 private fun RowScope.PlayModeItem(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, selected: Boolean, onClick: () -> Unit) {
     Row(
-        modifier = Modifier.weight(1f).clickable { onClick() }.padding(8.dp),
+        modifier = Modifier.weight(1f).heightIn(min = 44.dp).clickable { onClick() }.padding(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(icon, null, tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
@@ -331,9 +437,10 @@ private fun VibrateCard(
     vibrate: Boolean,
     vibrateDelayMinutes: Int,
     onVibrateChange: (Boolean) -> Unit,
-    onDelayChange: (Int) -> Unit
+    onDelayChange: (Int) -> Unit,
+    index: Int = 0
 ) {
-    FlatCard(title = stringResource(R.string.alarm_vibrate)) {
+    FlatCard(title = stringResource(R.string.alarm_vibrate), index = index) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -398,9 +505,10 @@ private fun SettingsCard(
     snoozeEnabled: Boolean,
     snoozeMinutes: Int,
     onSnoozeChange: (Boolean) -> Unit,
-    onSnoozeMinutesChange: (Int) -> Unit
+    onSnoozeMinutesChange: (Int) -> Unit,
+    index: Int = 0
 ) {
-    FlatCard(title = stringResource(R.string.settings_title)) {
+    FlatCard(title = stringResource(R.string.settings_title), index = index) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -464,12 +572,13 @@ private fun SettingsCard(
 @Composable
 private fun VolumeCard(
     volume: Float, fadeInEnabled: Boolean, fadeInDuration: Int,
-    onVolumeChange: (Float) -> Unit, onFadeInChange: (Boolean) -> Unit, onFadeInDurationChange: (Int) -> Unit
+    onVolumeChange: (Float) -> Unit, onFadeInChange: (Boolean) -> Unit, onFadeInDurationChange: (Int) -> Unit,
+    index: Int = 0
 ) {
     // 使用 key 参数确保 volume 变化时重新计算
     var useCustomVolume by remember(volume) { mutableStateOf(volume >= 0f) }
     
-    FlatCard(title = stringResource(R.string.settings_volume)) {
+    FlatCard(title = stringResource(R.string.settings_volume), index = index) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -561,27 +670,44 @@ private fun VolumeCard(
 }
 
 @Composable
-private fun FlatCard(title: String, content: @Composable () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        ),
-        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Text(
-                title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            content()
+private fun FlatCard(
+    title: String,
+    index: Int = 0,
+    trailing: (@Composable RowScope.() -> Unit)? = null,
+    content: @Composable () -> Unit
+) {
+    CardEntrance(index) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            ),
+            // 与主界面闹钟卡片一致：启用态彩色边框
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (trailing != null) {
+                        trailing()
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                content()
+            }
         }
     }
 }
@@ -622,4 +748,49 @@ private fun previewAlarm(
     
     // 发送广播，AlarmReceiver 会启动 Service 和 Activity
     context.sendBroadcast(broadcastIntent)
+}
+
+// ---------- @Preview ----------
+
+@Preview(showBackground = true, name = "闹钟编辑", locale = "zh", heightDp = 1000)
+@Composable
+private fun AlarmEditPreview() {
+    SleepyTuneTheme {
+        AlarmEditContent(
+            isEditing = true,
+            hour = 7,
+            minute = 30,
+            is24Hour = false,
+            onTimeChanged = { _, _ -> },
+            label = "起床啦",
+            onLabelChange = {},
+            repeatDays = setOf(1, 2, 3, 4, 5),
+            onDaysChanged = {},
+            playlists = listOf(
+                com.example.sleepytune.data.local.entity.Playlist(id = 1, name = "晨间歌单"),
+                com.example.sleepytune.data.local.entity.Playlist(id = 2, name = "白噪音")
+            ),
+            selectedPlaylistId = 1,
+            shuffleMode = false,
+            onPlaylistSelected = {},
+            onShuffleModeChanged = {},
+            vibrate = true,
+            vibrateDelayMinutes = 5,
+            onVibrateChange = {},
+            onDelayChange = {},
+            snoozeEnabled = true,
+            snoozeMinutes = 5,
+            onSnoozeChange = {},
+            onSnoozeMinutesChange = {},
+            volume = 0.8f,
+            fadeInEnabled = true,
+            fadeInDuration = 30,
+            onVolumeChange = {},
+            onFadeInChange = {},
+            onFadeInDurationChange = {},
+            onPreview = {},
+            onSave = {},
+            onBack = {}
+        )
+    }
 }

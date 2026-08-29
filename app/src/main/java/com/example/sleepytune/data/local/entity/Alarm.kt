@@ -30,4 +30,12 @@ data class Alarm(
     val fadeInEnabled: Boolean = true,
     val fadeInDuration: Int = 30,
     val vibrateDelayMinutes: Int = 0
-)
+) {
+    companion object {
+        /**
+         * 哨兵 id：表示闹钟使用"每日随机"歌单（每天自动换一批随机歌曲）。
+         * 不落库为真实歌单引用，响铃时由 PlaylistManager 解析为当日随机歌单。
+         */
+        const val DAILY_RANDOM_PLAYLIST_ID = -1L
+    }
+}

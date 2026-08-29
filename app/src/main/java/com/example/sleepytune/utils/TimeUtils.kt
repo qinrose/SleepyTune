@@ -105,6 +105,19 @@ object TimeUtils {
         }
     }
     
+    // 计算下一个 5 分钟整点（新建闹钟的默认时间用）：14:07 → 14:10，14:59 → 15:00
+    fun nextFiveMinuteMark(): Pair<Int, Int> {
+        val now = Calendar.getInstance()
+        val minute = now.get(Calendar.MINUTE)
+        val nextMinute = ((minute / 5) + 1) * 5
+        return if (nextMinute < 60) {
+            Pair(now.get(Calendar.HOUR_OF_DAY), nextMinute)
+        } else {
+            val hour = now.get(Calendar.HOUR_OF_DAY) + 1
+            Pair(if (hour == 24) 0 else hour, 0)
+        }
+    }
+
     // 获取星期几的中文名称
     fun getDayName(day: Int): String {
         return when (day) {

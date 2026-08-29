@@ -1,5 +1,6 @@
 package com.example.sleepytune.data.repository
 
+import android.content.Context
 import android.util.Log
 import com.example.sleepytune.data.datasource.LocalMusicDataSource
 import com.example.sleepytune.data.local.dao.AlarmDao
@@ -9,14 +10,19 @@ import com.example.sleepytune.data.local.entity.Music
 import com.example.sleepytune.data.local.entity.Playlist
 import com.example.sleepytune.data.local.entity.PlaylistSong
 import com.example.sleepytune.data.local.entity.PlaylistWithSongs
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class PlaylistRepositoryImpl @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val playlistDao: PlaylistDao,
     private val musicDao: MusicDao,
     private val alarmDao: AlarmDao,
@@ -27,6 +33,10 @@ class PlaylistRepositoryImpl @Inject constructor(
         return playlistDao.getAllPlaylists()
     }
 
+    override fun observeAllPlaylistsWithCount(): Flow<List<com.example.sleepytune.data.local.entity.PlaylistWithCount>> {
+        return playlistDao.getAllPlaylistsWithCount()
+    }
+
     override suspend fun getPlaylistWithSongs(id: Long): PlaylistWithSongs? {
         return playlistDao.getPlaylistWithSongs(id)
     }
@@ -34,6 +44,72 @@ class PlaylistRepositoryImpl @Inject constructor(
     override suspend fun createPlaylist(name: String): Long {
         val playlist = Playlist(name = name)
         return playlistDao.insertPlaylist(playlist)
+    }
+
+    override suspend fun createPlaylistWithSongs(name: String, musicIds: List<Long>): Long {
+        return withContext(Dispatchers.IO) {
+            try {
+                val id = playlistDao.insertPlaylist(Playlist(name = name))
+                val distinct = musicIds.distinct()
+                if (distinct.isNotEmpty()) {
+                    playlistDao.addSongsToPlaylist(distinct.map { PlaylistSong(id, it) })
+                }
+                Log.i("PlaylistRepo", "已创建歌单 '$name' (id=$id) 并添加 ${distinct.size} 首歌曲")
+                id
+            } catch (e: Exception) {
+                Log.e("PlaylistRepo", "创建歌单 '$name' 失败: ${e.message}", e)
+                -1L
+            }
+        }
+    }
+
+    override suspend fun refreshDailyRandomPlaylist(name: String, songCount: Int, force: Boolean): Long? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val prefs = context.getSharedPreferences("playlist_state", Context.MODE_PRIVATE)
+                val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                val savedId = prefs.getLong("daily_random_playlist_id", -1L)
+                val savedDate = prefs.getString("daily_random_date", "") ?: ""
+
+                // 复用已有歌单（用户删除后自动重建）
+                var playlistId =
+                    if (savedId > 0 && playlistDao.getPlaylistWithSongs(savedId) != null) savedId else -1L
+                if (playlistId <= 0) {
+                    playlistId = playlistDao.insertPlaylist(Playlist(name = name))
+                    Log.i("PlaylistRepo", "已创建每日随机歌单 id=$playlistId")
+                }
+
+                // 今天已生成且非手动刷新 → 直接返回
+                if (!force && savedDate == today) return@withContext playlistId
+
+                // 随机挑选歌曲并整批替换
+                val allIds = musicDao.getAllIds()
+                val picked = allIds.shuffled().take(minOf(songCount, allIds.size))
+                playlistDao.deletePlaylistSongs(playlistId)
+                if (picked.isNotEmpty()) {
+                    playlistDao.addSongsToPlaylist(picked.map { PlaylistSong(playlistId, it) })
+                }
+                prefs.edit()
+                    .putLong("daily_random_playlist_id", playlistId)
+                    .putString("daily_random_date", today)
+                    .apply()
+                Log.i("PlaylistRepo", "每日随机歌单已${if (force) "手动换一批" else "刷新"}: id=$playlistId, ${picked.size}首")
+                playlistId
+            } catch (e: Exception) {
+                Log.e("PlaylistRepo", "刷新每日随机歌单失败: ${e.message}", e)
+                null
+            }
+        }
+    }
+
+    override suspend fun getDailyRandomPlaylistId(): Long {
+        val prefs = context.getSharedPreferences("playlist_state", Context.MODE_PRIVATE)
+        return prefs.getLong("daily_random_playlist_id", -1L)
+    }
+
+    override suspend fun ensureDailyRandomPlaylistId(): Long? {
+        // 服务端（响铃）不需要本地化名称，用统一名；该歌单在各列表页均被隐藏
+        return refreshDailyRandomPlaylist("每日随机")
     }
 
     override suspend fun deletePlaylist(playlist: Playlist) {

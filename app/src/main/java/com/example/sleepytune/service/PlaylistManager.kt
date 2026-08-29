@@ -41,9 +41,11 @@ class PlaylistManager @Inject constructor(
             return false
         }
         
-        if (playlistId <= 0) return false
+        // 每日随机：解析为当日随机歌单（跨天自动换一批）
+        val resolvedId = resolvePlaylistId(playlistId) ?: return false
+        if (resolvedId <= 0) return false
         
-        val songIds = playlistRepository.getSongsInPlaylist(playlistId)
+        val songIds = playlistRepository.getSongsInPlaylist(resolvedId)
         if (songIds.isEmpty()) {
             Log.w(TAG, "歌单为空: playlistId=$playlistId")
             return false
@@ -58,6 +60,12 @@ class PlaylistManager @Inject constructor(
         persistState()
         Log.i(TAG, "加载歌单: ${musicList.size}首, shuffle=$shuffleMode")
         return true
+    }
+
+    // 每日随机哨兵 id → 真实歌单 id；普通歌单原样返回
+    private suspend fun resolvePlaylistId(id: Long): Long? {
+        if (id != com.example.sleepytune.data.local.entity.Alarm.DAILY_RANDOM_PLAYLIST_ID) return id
+        return playlistRepository.ensureDailyRandomPlaylistId()
     }
 
     // 获取当前歌曲
@@ -123,9 +131,10 @@ class PlaylistManager @Inject constructor(
 
     // 从数据库恢复
     suspend fun restoreFromDatabase(): Boolean {
-        if (playlistId <= 0) return false
+        val resolvedId = resolvePlaylistId(playlistId) ?: return false
+        if (resolvedId <= 0) return false
         
-        val songIds = playlistRepository.getSongsInPlaylist(playlistId)
+        val songIds = playlistRepository.getSongsInPlaylist(resolvedId)
         musicList = songIds.mapNotNull { playlistRepository.getMusicById(it) }
         if (musicList.isNotEmpty()) {
             currentIndex = 0

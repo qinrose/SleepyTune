@@ -98,11 +98,8 @@ fun SleepyTuneTheme(
     val view = LocalView.current
     if (!view.isInEditMode && !edgeToEdge) {
         val window = (view.context as Activity).window
-        val statusBarColor = if (darkTheme) {
-            BackgroundDark.toArgb()
-        } else {
-            BackgroundLight.toArgb()
-        }
+        // 跟随 colorScheme（动态取色时也能正确着色）
+        val statusBarColor = colorScheme.background.toArgb()
 
         SideEffect {
             // Android 15+ 已废弃 window.statusBarColor；在非 edge-to-edge 分支仍需显式着色，
