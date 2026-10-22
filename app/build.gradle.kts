@@ -9,11 +9,11 @@ plugins {
 // 无需再配置 KGP 的 kotlin { compilerOptions { jvmTarget } } 扩展。
 
 android {
-    namespace = "com.example.sleepytune"
+    namespace = "com.sleepytune.app"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.sleepytune"
+        applicationId = "com.sleepytune.app"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -28,11 +28,17 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 代码混淆 + 资源收缩：开源发布标准配置
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
         }
     }
 

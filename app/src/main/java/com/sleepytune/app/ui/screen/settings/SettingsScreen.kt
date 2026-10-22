@@ -1,0 +1,480 @@
+package com.sleepytune.app.ui.screen.settings
+
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowRight
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.NightlightRound
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
+import com.sleepytune.app.R
+import com.sleepytune.app.ui.component.CardEntrance
+import com.sleepytune.app.ui.viewmodel.LanguageViewModel
+import com.sleepytune.app.ui.viewmodel.ThemeViewModel
+import com.sleepytune.app.ui.viewmodel.SettingsViewModel
+import com.sleepytune.app.ui.viewmodel.TimeFormatViewModel
+import com.sleepytune.app.utils.PermissionUtils
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsScreen(navController: NavController) {
+    val context = LocalContext.current
+    val themeViewModel: ThemeViewModel = hiltViewModel()
+    val languageViewModel: LanguageViewModel = hiltViewModel()
+    val settingsViewModel: SettingsViewModel = hiltViewModel()
+    val timeFormatViewModel: TimeFormatViewModel = hiltViewModel()
+    val themeMode by themeViewModel.themeMode.collectAsState()
+    val currentLanguage by languageViewModel.currentLanguage.collectAsState()
+    val lockScreenPopupEnabled by settingsViewModel.lockScreenPopupEnabled.collectAsState()
+    val timeFormat by timeFormatViewModel.timeFormat.collectAsState()
+
+    var showThemeDialog by remember { mutableStateOf(false) }
+    var showTimeFormatDialog by remember { mutableStateOf(false) }
+    var showAboutDialog by remember { mutableStateOf(false) }
+    var showLockScreenPermissionDialog by remember { mutableStateOf(false) }
+
+    // 获取当前语言显示名称
+    val languageDisplayName = remember(currentLanguage) {
+        languageViewModel.getLanguageDisplayName(currentLanguage)
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.headlineMedium) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground
+                )
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier.fillMaxSize().padding(paddingValues).verticalScroll(rememberScrollState())
+        ) {
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 语言设置
+            CardEntrance(0) {
+                SettingItem(
+                    icon = Icons.Filled.Language,
+                    title = stringResource(R.string.settings_language),
+                    description = languageDisplayName
+                ) {
+                    navController.navigate("languageSettings")
+                }
+            }
+
+            // 主题设置
+            CardEntrance(1) {
+                SettingItem(
+                    icon = Icons.Filled.Palette,
+                    title = stringResource(R.string.settings_theme),
+                    description = when (themeMode) {
+                        ThemeViewModel.ThemeMode.LIGHT -> stringResource(R.string.theme_light)
+                        ThemeViewModel.ThemeMode.DARK -> stringResource(R.string.theme_dark)
+                        ThemeViewModel.ThemeMode.AUTO -> stringResource(R.string.theme_system)
+                    }
+                ) { showThemeDialog = true }
+            }
+
+            // 时间格式设置（12小时/24小时/跟随系统）
+            CardEntrance(2) {
+                SettingItem(
+                    icon = Icons.Filled.Schedule,
+                    title = stringResource(R.string.settings_time_format),
+                    description = when (timeFormat) {
+                        TimeFormatViewModel.TimeFormat.HOUR_24 -> stringResource(R.string.time_format_24h)
+                        TimeFormatViewModel.TimeFormat.HOUR_12 -> stringResource(R.string.time_format_12h)
+                        TimeFormatViewModel.TimeFormat.AUTO -> stringResource(R.string.time_format_system)
+                    }
+                ) { showTimeFormatDialog = true }
+            }
+
+            // 动态取色（Material You，仅 Android 12+）
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val dynamicColor by themeViewModel.dynamicColor.collectAsState()
+                CardEntrance(3) {
+                    SettingSwitchItem(
+                        icon = Icons.Filled.AutoAwesome,
+                        title = stringResource(R.string.settings_dynamic_color),
+                        description = stringResource(R.string.settings_dynamic_color_desc),
+                        checked = dynamicColor,
+                        onCheckedChange = { themeViewModel.setDynamicColor(it) }
+                    )
+                }
+            }
+
+            // 锁屏弹出设置
+            CardEntrance(4) {
+                SettingSwitchItem(
+                    icon = Icons.Filled.Lock,
+                    title = stringResource(R.string.lock_screen_popup),
+                    description = stringResource(R.string.lock_screen_popup_desc),
+                    checked = lockScreenPopupEnabled,
+                    onCheckedChange = { enabled ->
+                        if (enabled) {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                                showLockScreenPermissionDialog = true
+                            } else {
+                                settingsViewModel.setLockScreenPopupEnabled(true)
+                            }
+                        } else {
+                            settingsViewModel.setLockScreenPopupEnabled(false)
+                        }
+                    }
+                )
+            }
+
+            CardEntrance(5) {
+                SettingItem(Icons.Filled.Security, stringResource(R.string.settings_permissions), stringResource(R.string.settings_permissions_desc)) {
+                    navController.navigate("permissionGuide")
+                }
+            }
+
+            CardEntrance(6) {
+                SettingItem(Icons.Filled.Info, stringResource(R.string.settings_about), stringResource(R.string.settings_about_desc)) {
+                    showAboutDialog = true
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+
+    if (showThemeDialog) {
+        Dialog(onDismissRequest = { showThemeDialog = false }) {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
+                    Text(stringResource(R.string.settings_theme), style = MaterialTheme.typography.headlineSmall)
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    ThemeViewModel.ThemeMode.entries.forEach { mode ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).clickable {
+                                themeViewModel.setThemeMode(mode)
+                                showThemeDialog = false
+                            },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = themeMode == mode,
+                                onClick = { themeViewModel.setThemeMode(mode); showThemeDialog = false },
+                                colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text(
+                                when (mode) {
+                                    ThemeViewModel.ThemeMode.LIGHT -> stringResource(R.string.theme_light)
+                                    ThemeViewModel.ThemeMode.DARK -> stringResource(R.string.theme_dark)
+                                    ThemeViewModel.ThemeMode.AUTO -> stringResource(R.string.theme_system)
+                                },
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    TextButton(
+                        onClick = { showThemeDialog = false },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(stringResource(R.string.confirm_cancel), style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+            }
+        }
+    }
+
+    if (showAboutDialog) {
+        AlertDialog(
+            onDismissRequest = { showAboutDialog = false },
+            title = { Text(stringResource(R.string.about_title), style = MaterialTheme.typography.titleLarge) },            text = {
+                Column {
+                    Text("SleepyTune v1.0.0", style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(stringResource(R.string.about_desc), style = MaterialTheme.typography.bodyMedium)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(stringResource(R.string.about_features), style = MaterialTheme.typography.titleSmall)
+                    Text("• ${stringResource(R.string.about_feature_alarm)}", style = MaterialTheme.typography.bodyMedium)
+                    Text("• ${stringResource(R.string.about_feature_fade)}", style = MaterialTheme.typography.bodyMedium)
+                    Text("• ${stringResource(R.string.about_feature_playlist)}", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("© 2026 SleepyTune", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            confirmButton = { TextButton(onClick = { showAboutDialog = false }) { Text(stringResource(R.string.confirm_ok)) } },
+            shape = RoundedCornerShape(20.dp),
+            containerColor = MaterialTheme.colorScheme.surface,
+            tonalElevation = 0.dp
+        )
+    }
+
+    // 时间格式选择对话框（12小时 / 24小时 / 跟随系统）
+    if (showTimeFormatDialog) {
+        Dialog(onDismissRequest = { showTimeFormatDialog = false }) {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
+                    Text(stringResource(R.string.settings_time_format), style = MaterialTheme.typography.headlineSmall)
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    TimeFormatViewModel.TimeFormat.entries.forEach { format ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).clickable {
+                                timeFormatViewModel.setTimeFormat(format)
+                                showTimeFormatDialog = false
+                            },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = timeFormat == format,
+                                onClick = {
+                                    timeFormatViewModel.setTimeFormat(format)
+                                    showTimeFormatDialog = false
+                                },
+                                colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text(
+                                when (format) {
+                                    TimeFormatViewModel.TimeFormat.HOUR_24 -> stringResource(R.string.time_format_24h)
+                                    TimeFormatViewModel.TimeFormat.HOUR_12 -> stringResource(R.string.time_format_12h)
+                                    TimeFormatViewModel.TimeFormat.AUTO -> stringResource(R.string.time_format_system)
+                                },
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    TextButton(
+                        onClick = { showTimeFormatDialog = false },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(stringResource(R.string.confirm_cancel), style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+            }
+        }
+    }
+
+    if (showLockScreenPermissionDialog) {
+        AlertDialog(
+            onDismissRequest = { showLockScreenPermissionDialog = false },
+            title = { Text(stringResource(R.string.lock_screen_popup_permission), style = MaterialTheme.typography.titleLarge) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.lock_screen_popup_permission_desc), style = MaterialTheme.typography.bodyMedium)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(stringResource(R.string.lock_screen_popup_hint), style = MaterialTheme.typography.bodyMedium)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showLockScreenPermissionDialog = false
+                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = Uri.parse("package:${context.packageName}")
+                    }
+                    context.startActivity(intent)
+                    settingsViewModel.setLockScreenPopupEnabled(true)
+                }) {
+                    Text(stringResource(R.string.permission_settings))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLockScreenPermissionDialog = false }) {
+                    Text(stringResource(R.string.confirm_cancel))
+                }
+            },
+            shape = RoundedCornerShape(20.dp),
+            containerColor = MaterialTheme.colorScheme.surface,
+            tonalElevation = 0.dp
+        )
+    }
+}
+
+@Composable
+fun SettingItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    description: String,
+    onClick: (() -> Unit)? = null
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clickable { onClick?.invoke() },
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        // 与主界面卡片一致：彩色边框
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Card(
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                modifier = Modifier.size(44.dp)
+            ) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Icon(
+                        icon, title,
+                        modifier = Modifier.size(22.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowRight, "more",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun SettingSwitchItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        // 与主界面卡片一致：彩色边框
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Card(
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                modifier = Modifier.size(44.dp)
+            ) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Icon(
+                        icon, title,
+                        modifier = Modifier.size(22.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.primary,
+                    checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                    uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            )
+        }
+    }
+}

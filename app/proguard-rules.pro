@@ -34,15 +34,15 @@
 -keep class dagger.hilt.** { *; }
 -keep class javax.inject.** { *; }
 -keep class * extends dagger.hilt.android.internal.managers.ComponentSupplier { *; }
--keep,allowobfuscation,allowshrinking class com.example.sleepytune.common.AppModule { *; }
--keep,allowobfuscation,allowshrinking interface com.example.sleepytune.common.AppModule { *; }
+-keep,allowobfuscation,allowshrinking class com.sleepytune.app.common.AppModule { *; }
+-keep,allowobfuscation,allowshrinking interface com.sleepytune.app.common.AppModule { *; }
 
 # Compose
 -keep class androidx.compose.** { *; }
 -dontwarn androidx.compose.**
 
 # Data Class (Room Entity)
--keep class com.example.sleepytune.data.local.entity.** { *; }
+-keep class com.sleepytune.app.data.local.entity.** { *; }
 
 # ViewModel
 -keep class * extends androidx.lifecycle.ViewModel { *; }
@@ -106,8 +106,8 @@
 -optimizations !code/simplification/arithmetic,!field/*,!class/merging/*,!code/allocation/variable
 
 # 保留应用主类
--keep class com.example.sleepytune.SleepyTuneApplication { *; }
--keep class com.example.sleepytune.MainActivity { *; }
+-keep class com.sleepytune.app.SleepyTuneApplication { *; }
+-keep class com.sleepytune.app.MainActivity { *; }
 
 # 保留 Native 方法
 -keepclasseswithmembernames class * {
