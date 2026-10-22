@@ -25,3 +25,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Sleepy Tune"
 include(":app")
+include(":wear")

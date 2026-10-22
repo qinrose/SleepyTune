@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wear_app_name">Sleepy Tune</string>
+    <string name="wear_next_alarm">下一个闹钟</string>
+    <string name="wear_no_alarm">未设置闹钟</string>
+    <string name="wear_no_phone">连接手机后同步闹钟</string>
+    <string name="wear_alarm_list">闹钟列表</string>
+    <string name="wear_repeat_once">单次</string>
+    <string name="wear_loading">正在同步闹钟…</string>
+    <string name="wear_repeat_everyday">每天</string>
+    <string name="wear_repeat_weekdays">工作日</string>
+    <string name="wear_repeat_weekend">周末</string>
+    <string name="wear_day_mon">一</string>
+    <string name="wear_day_tue">二</string>
+    <string name="wear_day_wed">三</string>
+    <string name="wear_day_thu">四</string>
+    <string name="wear_day_fri">五</string>
+    <string name="wear_day_sat">六</string>
+    <string name="wear_day_sun">日</string>
+</resources>

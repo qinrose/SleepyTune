@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.sleepytune.app.data.local.entity.Alarm
 import com.sleepytune.app.data.repository.AlarmRepository
 import com.sleepytune.app.service.AlarmScheduler
+import com.sleepytune.app.wear.WearSyncManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -15,7 +16,8 @@ import javax.inject.Inject
 class AlarmListViewModel @Inject constructor(
     private val alarmRepository: AlarmRepository,
     private val alarmScheduler: AlarmScheduler,
-    private val alarmRescheduler: com.sleepytune.app.service.AlarmRescheduler
+    private val alarmRescheduler: com.sleepytune.app.service.AlarmRescheduler,
+    private val wearSyncManager: WearSyncManager
 ) : ViewModel() {
 
     val alarms: StateFlow<List<Alarm>> = alarmRepository.observeAllAlarms()
@@ -26,6 +28,7 @@ class AlarmListViewModel @Inject constructor(
             alarmRepository.deleteAlarm(alarm)
             alarmScheduler.cancel(alarm)
             alarmRescheduler.refreshNextAlarmTime()
+            wearSyncManager.syncFromRepository()
         }
     }
 
@@ -39,6 +42,7 @@ class AlarmListViewModel @Inject constructor(
                 alarmScheduler.cancel(alarm)
             }
             alarmRescheduler.refreshNextAlarmTime()
+            wearSyncManager.syncFromRepository()
         }
     }
 }

@@ -57,6 +57,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:enableOnBackInvokedCallback="true"
+        android:resizeableActivity="true"
         android:theme="@style/Theme.SleepyTune"
         android:localeConfig="@xml/locale_config"
         tools:targetApi="33">
@@ -119,6 +120,16 @@
             android:exported="false"
             android:foregroundServiceType="mediaPlayback"
             android:stopWithTask="false" />
+
+        <!-- Wear OS 手表数据层监听服务（接收手表端开关/同步指令） -->
+        <service
+            android:name=".wear.PhoneWearListenerService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+                <data android:scheme="wear" android:host="*" />
+            </intent-filter>
+        </service>
         
         <!-- 桌面小部件 -->
         <receiver

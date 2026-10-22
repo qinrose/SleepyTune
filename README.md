@@ -24,6 +24,8 @@ A gentle, reliable alarm clock for Android — wake up to your own music, with f
 - 🔊 **Preview** — try an alarm instantly before saving it
 - 🎵 **Music library** — scan local audio (MP3 / FLAC / WAV / M4A), organize into playlists, filter by artist/album/duration
 - 🌓 **Light & dark themes** + Material You dynamic color (Android 12+)
+- 📱 **Adaptive layout** — bottom bar on phones, navigation rail + centered content on tablets and foldable inner screens
+- ⌚ **Wear OS companion** — check and toggle alarms from your wrist (auto-syncs via the Wear Data Layer)
 - 🌍 **i18n** — English & Simplified Chinese, 12/24-hour clock
 - 📱 **Home-screen widget** — shows the next alarm
 
@@ -47,6 +49,8 @@ Alarms are engineered to ring on time:
 | Navigation | Navigation Compose |
 | Async | Kotlin Coroutines + Flow |
 | Images | Coil |
+| Wear OS | Compose for Wear OS + Wear Data Layer |
+| Adaptive | Material 3 WindowSizeClass |
 | Min SDK | 24 (Android 7.0) · Target SDK 36 |
 
 ## Build

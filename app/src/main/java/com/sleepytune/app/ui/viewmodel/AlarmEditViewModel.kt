@@ -31,7 +31,8 @@ class AlarmEditViewModel @Inject constructor(
     private val alarmRepository: AlarmRepository,
     private val playlistRepository: PlaylistRepository,
     private val alarmScheduler: AlarmScheduler,
-    private val alarmRescheduler: com.sleepytune.app.service.AlarmRescheduler
+    private val alarmRescheduler: com.sleepytune.app.service.AlarmRescheduler,
+    private val wearSyncManager: com.sleepytune.app.wear.WearSyncManager
 ) : ViewModel() {
 
     // 新建闹钟默认"当前时间的下一个 5 分钟整点"（如 14:07 → 14:10），而非固定 8:00
@@ -151,6 +152,7 @@ class AlarmEditViewModel @Inject constructor(
                 }
                 // 刷新"下一个闹钟时间"，保持错过检测准确
                 alarmRescheduler.refreshNextAlarmTime()
+                wearSyncManager.syncFromRepository()
                 onResult(true)
             } catch (e: Exception) {
                 android.util.Log.e("AlarmEditVM", "保存闹钟失败: ${e.message}", e)

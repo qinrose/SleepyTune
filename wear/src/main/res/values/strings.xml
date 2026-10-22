@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wear_app_name">Sleepy Tune</string>
+    <string name="wear_next_alarm">Next alarm</string>
+    <string name="wear_no_alarm">No alarm set</string>
+    <string name="wear_no_phone">Connect your phone to sync alarms</string>
+    <string name="wear_alarm_list">Alarms</string>
+    <string name="wear_repeat_once">Once</string>
+    <string name="wear_loading">Syncing alarms…</string>
+    <string name="wear_repeat_everyday">Every day</string>
+    <string name="wear_repeat_weekdays">Weekdays</string>
+    <string name="wear_repeat_weekend">Weekend</string>
+    <string name="wear_day_mon">Mon</string>
+    <string name="wear_day_tue">Tue</string>
+    <string name="wear_day_wed">Wed</string>
+    <string name="wear_day_thu">Thu</string>
+    <string name="wear_day_fri">Fri</string>
+    <string name="wear_day_sat">Sat</string>
+    <string name="wear_day_sun">Sun</string>
+</resources>

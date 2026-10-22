@@ -24,6 +24,8 @@
 - 🔊 **试听** —— 保存前即时预览闹钟效果
 - 🎵 **音乐库** —— 扫描本地音频（MP3 / FLAC / WAV / M4A），管理歌单，按歌手/专辑/时长筛选
 - 🌓 **明暗双主题** + Material You 动态取色（Android 12+）
+- 📱 **自适应布局** —— 手机用底部导航栏，平板/折叠屏内屏自动切换侧边导航栏 + 居中内容列
+- ⌚ **Wear OS 手表应用** —— 手表上查看/开关闹钟（Wear Data Layer 自动同步）
 - 🌍 **多语言** —— 简体中文与英文，12/24 小时制
 - 📱 **桌面小部件** —— 显示下一个闹钟
 
@@ -47,6 +49,8 @@
 | 导航 | Navigation Compose |
 | 异步 | Kotlin Coroutines + Flow |
 | 图片加载 | Coil |
+| Wear OS | Compose for Wear OS + Wear Data Layer |
+| 自适应 | Material 3 WindowSizeClass |
 | 最低 SDK | 24（Android 7.0）· 目标 SDK 36 |
 
 ## 构建

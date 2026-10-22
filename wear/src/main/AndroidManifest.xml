@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 手表应用 -->
+    <uses-feature android:name="android.hardware.type.watch" android:required="true" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@drawable/ic_watch_launcher"
+        android:label="@string/wear_app_name"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+
+        <uses-library
+            android:name="com.google.android.wearable"
+            android:required="false" />
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- 独立运行的 Wear 应用（配合手机 App 通过 Data Layer 同步数据） -->
+        <meta-data
+            android:name="com.google.android.wearable.standalone"
+            android:value="false" />
+    </application>
+
+</manifest>

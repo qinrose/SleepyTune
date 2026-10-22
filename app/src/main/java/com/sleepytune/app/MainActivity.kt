@@ -6,14 +6,19 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.lifecycle.lifecycleScope
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
+import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,6 +34,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.sleepytune.app.service.AlarmStateManager
+import com.sleepytune.app.wear.WearSyncManager
 import com.sleepytune.app.ui.screen.alarm.AlarmAlertActivity
 import com.sleepytune.app.ui.screen.alarmedit.AlarmEditScreen
 import com.sleepytune.app.ui.screen.alarmlist.AlarmListScreen
@@ -41,15 +47,18 @@ import com.sleepytune.app.ui.screen.settings.SettingsScreen
 import com.sleepytune.app.ui.theme.SleepyTuneTheme
 import com.sleepytune.app.utils.PermissionUtils
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
     @Inject lateinit var alarmStateManager: AlarmStateManager
-    
+    @Inject lateinit var wearSyncManager: WearSyncManager
+
     private var lastAlarmAlertLaunchTime = 0L
 
+    @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -72,12 +81,16 @@ class MainActivity : AppCompatActivity() {
         PermissionUtils.initPermissionLaunchers(this)
 
         setContent {
-            MainApp()
+            // WindowSizeClass：驱动手机 / 折叠屏内外屏 / 平板的自适应布局
+            val windowSizeClass = calculateWindowSizeClass(this)
+            MainApp(widthSizeClass = windowSizeClass.widthSizeClass)
         }
     }
 
     override fun onResume() {
         super.onResume()
+        // 应用回到前台时向手表推送一次最新闹钟数据（覆盖调度器等外部变更）
+        lifecycleScope.launch { wearSyncManager.syncFromRepository() }
         // 如果闹钟正在响，直接跳转到闹钟界面
         // 添加防抖检查，避免短时间内重复启动
         val currentTime = System.currentTimeMillis()
@@ -98,7 +111,7 @@ class MainActivity : AppCompatActivity() {
 }
 
 @Composable
-fun MainApp() {
+fun MainApp(widthSizeClass: WindowWidthSizeClass) {
     // 使用 AppCompatDelegate 直接判定主题，避免 ViewModel 在 Activity 重建后持有旧值
     val darkTheme = when (AppCompatDelegate.getDefaultNightMode()) {
         AppCompatDelegate.MODE_NIGHT_NO -> false
@@ -113,12 +126,12 @@ fun MainApp() {
     // edgeToEdge：系统栏透明、内容延伸到底；各页面 Scaffold/TopAppBar 自带 inset，
     // 内容不会顶到状态栏
     SleepyTuneTheme(darkTheme = darkTheme, dynamicColor = dynamicColor, edgeToEdge = true) {
-        MainAppContent()
+        MainAppContent(widthSizeClass = widthSizeClass)
     }
 }
 
 @Composable
-fun MainAppContent() {
+fun MainAppContent(widthSizeClass: WindowWidthSizeClass) {
     val context = LocalContext.current
     var showPermissionGuide by remember { mutableStateOf(false) }
 
@@ -134,70 +147,133 @@ fun MainAppContent() {
             onAllPermissionsGranted = { showPermissionGuide = false }
         )
     } else {
-        MainScreen()
+        MainScreen(widthSizeClass = widthSizeClass)
     }
 }
 
 // 统一导航过渡动画：所有页面淡入淡出，消除不一的滑入/浮现效果
 private const val NAV_ANIM_DURATION = 250
 
+// 展开宽度（≥600dp，平板/折叠屏内屏）下内容列的最大宽度，居中显示
+private val ExpandedContentMaxWidth = 640.dp
+
 @Composable
-fun MainScreen() {
+fun MainScreen(widthSizeClass: WindowWidthSizeClass) {
     val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
+    // 自适应导航：Compact（手机/折叠屏外屏）用底部导航栏，Medium/Expanded（折叠屏内屏/平板）用侧边导航栏
+    val useNavigationRail = widthSizeClass != WindowWidthSizeClass.Compact
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface,
-                tonalElevation = 3.dp
-            ) {
-                val navBackStackEntry by navController.currentBackStackEntryAsState()
-                val currentRoute = navBackStackEntry?.destination?.route
-
-                NavItem.values().forEach { item ->
-                    NavigationBarItem(
-                        selected = currentRoute == item.route,
-                        onClick = { navController.navigate(item.route) },
-                        icon = {
-                            Icon(
-                                imageVector = item.icon,
-                                contentDescription = item.getLabel(),
-                                tint = if (currentRoute == item.route) 
-                                    MaterialTheme.colorScheme.onPrimaryContainer 
-                                else 
-                                    MaterialTheme.colorScheme.onSurfaceVariant
+            if (!useNavigationRail) {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 3.dp
+                ) {
+                    NavItem.entries.forEach { item ->
+                        NavigationBarItem(
+                            selected = currentRoute == item.route,
+                            onClick = { navController.navigate(item.route) },
+                            icon = {
+                                Icon(
+                                    imageVector = item.icon,
+                                    contentDescription = item.getLabel(),
+                                    tint = if (currentRoute == item.route)
+                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            label = {
+                                Text(
+                                    text = item.getLabel(),
+                                    fontSize = 12.sp,
+                                    fontWeight = if (currentRoute == item.route) FontWeight.SemiBold else FontWeight.Normal,
+                                    color = if (currentRoute == item.route)
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                indicatorColor = MaterialTheme.colorScheme.primaryContainer
                             )
-                        },
-                        label = {
-                            Text(
-                                text = item.getLabel(),
-                                fontSize = 12.sp,
-                                fontWeight = if (currentRoute == item.route) FontWeight.SemiBold else FontWeight.Normal,
-                                color = if (currentRoute == item.route) 
-                                    MaterialTheme.colorScheme.primary 
-                                else 
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
                         )
-                    )
+                    }
                 }
             }
         }
     ) { padding ->
-        NavHost(
-            navController = navController,
-            startDestination = "alarmList",
-            modifier = Modifier.padding(padding)
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
         ) {
+            if (useNavigationRail) {
+                NavigationRail(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    header = {
+                        // 侧栏顶部放应用标识，保持品牌感
+                        Icon(
+                            imageVector = Icons.Default.DarkMode,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(vertical = 12.dp)
+                        )
+                    }
+                ) {
+                    NavItem.entries.forEach { item ->
+                        NavigationRailItem(
+                            selected = currentRoute == item.route,
+                            onClick = { navController.navigate(item.route) },
+                            icon = {
+                                Icon(
+                                    imageVector = item.icon,
+                                    contentDescription = item.getLabel(),
+                                    tint = if (currentRoute == item.route)
+                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            label = {
+                                Text(
+                                    text = item.getLabel(),
+                                    fontSize = 12.sp,
+                                    fontWeight = if (currentRoute == item.route) FontWeight.SemiBold else FontWeight.Normal,
+                                    color = if (currentRoute == item.route)
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+
+            // 内容区：展开宽度下限宽居中（平板/折叠屏内屏的"居中列"标准模式）
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background),
+                contentAlignment = Alignment.TopCenter
+            ) {
+                NavHost(
+                    navController = navController,
+                    startDestination = "alarmList",
+                    modifier = Modifier.widthIn(max = ExpandedContentMaxWidth)
+                ) {
             // 统一淡入淡出过渡（所有页面一致，消除滑入/浮现不统一的问题）
             fun navAnim() = fadeIn(tween(NAV_ANIM_DURATION))
             fun navAnimOut() = fadeOut(tween(NAV_ANIM_DURATION))
@@ -232,6 +308,8 @@ fun MainScreen() {
             }
             composable("permissionGuide", enterTransition = { navAnim() }, exitTransition = { navAnimOut() }, popEnterTransition = { navAnim() }, popExitTransition = { navAnimOut() }) {
                 PermissionGuideScreen(onNavigateBack = { navController.popBackStack() }, onAllPermissionsGranted = { navController.popBackStack() })
+            }
+                }
             }
         }
     }

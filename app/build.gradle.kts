@@ -78,9 +78,14 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.material.icons.extended)
+    implementation(libs.androidx.material3.windowsizeclass)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.media)
     implementation(libs.coil.compose)
+
+    // Wear OS 手表联动（DataClient 同步闹钟 / MessageClient 接收手表开关）
+    implementation(libs.play.services.wearable)
+    implementation(libs.kotlinx.coroutines.play.services)
 
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 
