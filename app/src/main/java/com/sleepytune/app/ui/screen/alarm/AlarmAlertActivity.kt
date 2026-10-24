@@ -20,6 +20,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
@@ -674,14 +675,25 @@ private fun MagazineSongCard(title: String, artist: String, onNextSong: () -> Un
                 }
             }
             Spacer(modifier = Modifier.width(12.dp))
-            FloatingActionButton(
+            // 下一首：编辑风格的「细描边圆形」次级按钮。
+            // 不用 FloatingActionButton —— 它的 6dp 投影会透过半透明容器显形，
+            // 在浅色卡片上变成一块发灰的脏渐变。
+            Surface(
                 onClick = onNextSong,
-                shape = Radius.md,
-                containerColor = cfg.ButtonPrimary,
-                contentColor = cfg.TextPrimary,
+                shape = CircleShape,
+                color = cfg.ButtonSecondary,
+                contentColor = cfg.IconAccent,
+                border = androidx.compose.foundation.BorderStroke(1.dp, cfg.ButtonBorder),
                 modifier = Modifier.size(48.dp)
             ) {
-                Icon(Icons.Default.SkipNext, contentDescription = stringResource(R.string.action_next_song), modifier = Modifier.size(22.dp))
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.SkipNext,
+                        contentDescription = stringResource(R.string.action_next_song),
+                        tint = cfg.IconAccent,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
             }
         }
     }
