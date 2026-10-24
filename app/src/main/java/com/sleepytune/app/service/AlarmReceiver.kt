@@ -122,7 +122,8 @@ class AlarmReceiver : BroadcastReceiver() {
         val fadeInEnabled = intent.getBooleanExtra(EXTRA_FADE_IN_ENABLED, true)
         val fadeInDuration = intent.getIntExtra(EXTRA_FADE_IN_DURATION, 30)
         val snoozeMinutes = intent.getIntExtra(EXTRA_SNOOZE_MINUTES, 5)
-        val snoozeEnabled = intent.getBooleanExtra(EXTRA_SNOOZE_ENABLED, true)
+        // 缺省关闭：只有闹钟显式开启贪睡，响铃界面才出现「贪睡」入口
+        val snoozeEnabled = intent.getBooleanExtra(EXTRA_SNOOZE_ENABLED, false)
 
         Log.i(TAG, "Alarm triggered: id=$alarmId, playlist=$playlistId, vibrate=$vibrate, delay=$vibrateDelayMinutes, snooze=$snoozeMinutes")
 
@@ -164,6 +165,8 @@ class AlarmReceiver : BroadcastReceiver() {
                 putExtra("alarm_id", alarmId)
                 putExtra("label", label)
                 putExtra("snooze_enabled", snoozeEnabled)
+                // 响铃界面据此决定是否提供「立即停止震动」，必须带上真实值
+                putExtra("vibrate", vibrate)
                 putExtra(EXTRA_SONG_TITLE, songTitle)
                 putExtra(EXTRA_SONG_ARTIST, songArtist)
             }
@@ -298,6 +301,8 @@ class AlarmReceiver : BroadcastReceiver() {
         val fadeInEnabled = intent.getBooleanExtra("fade_in_enabled", true)
         val fadeInDuration = intent.getIntExtra("fade_in_duration", 30)
         val snoozeMinutes = intent.getIntExtra("snooze_minutes", 5)
+        // 贪睡重响时沿用闹钟自身的贪睡开关，不能在这里硬编码 true
+        val snoozeEnabled = intent.getBooleanExtra("snooze_enabled", false)
 
         Log.i(TAG, "贪睡触发: alarmId=$alarmId, label=$label")
 
@@ -313,7 +318,7 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("fade_in_enabled", fadeInEnabled)
             putExtra("fade_in_duration", fadeInDuration)
             putExtra("snooze_minutes", snoozeMinutes)
-            putExtra("snooze_enabled", true)
+            putExtra("snooze_enabled", snoozeEnabled)
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -331,7 +336,8 @@ class AlarmReceiver : BroadcastReceiver() {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
                 putExtra("alarm_id", alarmId)
                 putExtra("label", label)
-                putExtra("snooze_enabled", true)
+                putExtra("snooze_enabled", snoozeEnabled)
+                putExtra("vibrate", vibrate)
                 putExtra(EXTRA_SONG_TITLE, songTitle)
                 putExtra(EXTRA_SONG_ARTIST, songArtist)
             }

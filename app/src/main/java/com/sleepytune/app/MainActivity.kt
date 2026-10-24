@@ -13,7 +13,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -23,6 +25,8 @@ import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -75,10 +79,12 @@ class MainActivity : AppCompatActivity() {
             val alarmId = alarmStateManager.getAlarmIdCrossProcess(this)
             val alarmLabel = alarmStateManager.getAlarmLabelCrossProcess(this)
             val snoozeEnabled = alarmStateManager.getSnoozeEnabledCrossProcess(this)
+            val vibrate = alarmStateManager.getVibrateStateCrossProcess(this).first
             startActivity(Intent(this, AlarmAlertActivity::class.java).apply {
                 putExtra("alarm_id", alarmId)
                 putExtra("label", alarmLabel)
                 putExtra("snooze_enabled", snoozeEnabled)
+                putExtra("vibrate", vibrate)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             })
             finish()
@@ -107,10 +113,12 @@ class MainActivity : AppCompatActivity() {
             val alarmId = alarmStateManager.getAlarmIdCrossProcess(this)
             val alarmLabel = alarmStateManager.getAlarmLabelCrossProcess(this)
             val snoozeEnabled = alarmStateManager.getSnoozeEnabledCrossProcess(this)
+            val vibrate = alarmStateManager.getVibrateStateCrossProcess(this).first
             startActivity(Intent(this, AlarmAlertActivity::class.java).apply {
                 putExtra("alarm_id", alarmId)
                 putExtra("label", alarmLabel)
                 putExtra("snooze_enabled", snoozeEnabled)
+                putExtra("vibrate", vibrate)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             })
         }
@@ -182,58 +190,10 @@ fun MainScreen(widthSizeClass: WindowWidthSizeClass) {
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Bottom),
         bottomBar = {
             if (!useNavigationRail) {
-                // 边到边：导航栏与页面同底色（而不是纯白 surface），
-                // 否则米色页面上会出现一条"白条"，观感上像旧的系统导航栏。
-                // 仅用一条 hairline 分隔线建立层次。
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.background)
-                ) {
-                    HorizontalDivider(
-                        thickness = 1.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
-                    )
-                    NavigationBar(
-                        containerColor = MaterialTheme.colorScheme.background,
-                        tonalElevation = 0.dp
-                    ) {
-                        NavItem.entries.forEach { item ->
-                            NavigationBarItem(
-                                selected = currentRoute == item.route,
-                                onClick = { navController.navigate(item.route) },
-                                icon = {
-                                    Icon(
-                                        imageVector = item.icon,
-                                        contentDescription = item.getLabel(),
-                                        tint = if (currentRoute == item.route)
-                                            MaterialTheme.colorScheme.onPrimaryContainer
-                                        else
-                                            MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                },
-                                label = {
-                                    Text(
-                                        text = item.getLabel(),
-                                        fontSize = 12.sp,
-                                        fontWeight = if (currentRoute == item.route) FontWeight.SemiBold else FontWeight.Normal,
-                                        color = if (currentRoute == item.route)
-                                            MaterialTheme.colorScheme.primary
-                                        else
-                                            MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                },
-                                colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    selectedTextColor = MaterialTheme.colorScheme.primary,
-                                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    indicatorColor = MaterialTheme.colorScheme.primaryContainer
-                                )
-                            )
-                        }
-                    }
-                }
+                AppBottomBar(
+                    currentRoute = currentRoute,
+                    onSelect = { navController.navigate(it) }
+                )
             }
         }
     ) { padding ->
@@ -334,6 +294,73 @@ fun MainScreen(widthSizeClass: WindowWidthSizeClass) {
             composable("permissionGuide", enterTransition = { navAnim() }, exitTransition = { navAnimOut() }, popEnterTransition = { navAnim() }, popExitTransition = { navAnimOut() }) {
                 PermissionGuideScreen(onNavigateBack = { navController.popBackStack() }, onAllPermissionsGranted = { navController.popBackStack() })
             }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 底部导航栏（手机 / 折叠屏外屏）
+ *
+ * 为什么不用 M3 NavigationBar：
+ * 它的固定 80dp 高度 + 内建的上下留白，在"图标 + 文字"只有 40dp 的场景里
+ * 会在分隔线下面留出一整条空白，看起来像没做完。这里用紧凑的自定义实现：
+ * 分隔线 → 6dp → 图标胶囊 26dp → 3dp → 文字 → 6dp，总高约 63dp（不含手势条 inset），
+ * 视觉上更贴近内容，也不再有多余的空带。
+ */
+@Composable
+private fun AppBottomBar(currentRoute: String?, onSelect: (String) -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Surface(color = scheme.background, tonalElevation = 0.dp) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            HorizontalDivider(
+                thickness = 1.dp,
+                color = scheme.outlineVariant.copy(alpha = 0.5f)
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                NavItem.entries.forEach { item ->
+                    val selected = currentRoute == item.route
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(14.dp))
+                            .clickable { onSelect(item.route) }
+                            .padding(vertical = 4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(width = 48.dp, height = 26.dp)
+                                .clip(RoundedCornerShape(13.dp))
+                                .background(
+                                    if (selected) scheme.primaryContainer else Color.Transparent
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = item.icon,
+                                contentDescription = item.getLabel(),
+                                modifier = Modifier.size(19.dp),
+                                tint = if (selected) scheme.onPrimaryContainer else scheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = item.getLabel(),
+                            fontSize = 11.sp,
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (selected) scheme.primary else scheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+                    }
                 }
             }
         }

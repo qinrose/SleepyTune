@@ -10,7 +10,6 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -61,8 +60,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -265,8 +262,9 @@ private fun EmptyPlaylistScreen() {
 }
 
 /**
- * 歌单卡片 - 大师级设计
- * 翡翠渐变封面块 + 克制的字体层级 + 微妙的彩色描边
+ * 歌单卡片
+ * 纯文字卡：歌单名 + 歌曲数，去掉了早期的渐变音符封面块——
+ * 那个图标既重复（每张卡都一样）又抢戏，删掉后信息密度更高、更像音乐库。
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -292,32 +290,9 @@ fun PlaylistCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 翡翠渐变封面块
-            Box(
-                modifier = Modifier
-                    .size(52.dp)
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                com.sleepytune.app.ui.theme.GradientStart,
-                                com.sleepytune.app.ui.theme.GradientAccentStart
-                            )
-                        ),
-                        Radius.md
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.MusicNote,
-                    contentDescription = null,
-                    modifier = Modifier.size(26.dp),
-                    tint = Color.White.copy(alpha = 0.9f)
-                )
-            }
-            Spacer(modifier = Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     playlist.name,

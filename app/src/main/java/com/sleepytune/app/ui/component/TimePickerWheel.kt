@@ -3,19 +3,21 @@ import com.sleepytune.app.ui.theme.Radius
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -27,6 +29,9 @@ import androidx.compose.ui.res.stringResource
 import com.sleepytune.app.R
 import kotlin.math.abs
 
+// 滚轮单行高度：5 行可见 = 280dp，正好让选中行落在正中
+private val WheelItemHeight = 56.dp
+
 @Composable
 fun TimePickerWheel(
     initialHour: Int = 8,
@@ -37,14 +42,14 @@ fun TimePickerWheel(
     var selectedHour by remember { mutableIntStateOf(initialHour) }
     var selectedMinute by remember { mutableIntStateOf(initialMinute) }
     var isAM by remember { mutableStateOf(initialHour < 12) }
-    
+
     // 监听初始值变化，更新选中值
     LaunchedEffect(initialHour, initialMinute) {
         selectedHour = initialHour
         selectedMinute = initialMinute
         isAM = initialHour < 12
     }
-    
+
     // 计算显示的小时值
     val displayHour = if (is24Hour) {
         selectedHour
@@ -55,13 +60,12 @@ fun TimePickerWheel(
             else -> selectedHour - 12
         }
     }
-    
+
     // 12小时制下，列表索引需要转换：索引0对应值1，索引11对应值12
     val hourIndex = if (is24Hour) displayHour else displayHour - 1
-    
+
     // 处理时间变化
     fun handleTimeChange(hourIdx: Int, newMinute: Int) {
-        // 12小时制下，索引需要+1转为实际小时值
         val newDisplayHour = if (is24Hour) hourIdx else hourIdx + 1
         val actualHour = if (is24Hour) {
             newDisplayHour
@@ -76,26 +80,25 @@ fun TimePickerWheel(
         selectedHour = actualHour
         selectedMinute = newMinute
     }
-    
+
     LaunchedEffect(selectedHour, selectedMinute) {
         onTimeChanged(selectedHour, selectedMinute)
     }
-    
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = Radius.xl,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-        )
+
+    // 不再套一层 Card：外层 FlatCard 已经是卡片，嵌套会变成"卡里卡"。
+    // 选中态用一条贯穿「时:分」的发丝线窗口表达，而不是每列各画一个药丸色块。
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(WheelItemHeight * 5)
     ) {
+        SelectionWindow()
+
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 24.dp),
+            modifier = Modifier.fillMaxSize(),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 小时滚轮
             InfiniteWheelPicker(
                 items = if (is24Hour) {
                     (0..23).map { String.format("%02d", it) }
@@ -104,66 +107,109 @@ fun TimePickerWheel(
                 },
                 initialIndex = hourIndex,
                 onSelectedChange = { index -> handleTimeChange(index, selectedMinute) },
-                modifier = Modifier.width(100.dp)
+                modifier = Modifier.width(84.dp)
             )
-            
-            Text(
-                text = ":",
-                fontSize = 56.sp,
-                fontWeight = FontWeight.ExtraLight,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(horizontal = 12.dp)
-            )
-            
-            // 分钟滚轮
+
+            HourMinuteSeparator()
+
             InfiniteWheelPicker(
                 items = (0..59).map { String.format("%02d", it) },
                 initialIndex = selectedMinute,
                 onSelectedChange = { index -> handleTimeChange(hourIndex, index) },
-                modifier = Modifier.width(100.dp)
+                modifier = Modifier.width(84.dp)
             )
-            
-            // AM/PM切换按钮（仅12小时制显示）
+
             if (!is24Hour) {
-                Spacer(modifier = Modifier.width(16.dp))
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (isAM) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                        onClick = { 
-                            isAM = true
-                            handleTimeChange(hourIndex, selectedMinute)
-                        }
-                    ) {
-                        Text(
-                            text = "AM",
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isAM) Color.White else MaterialTheme.colorScheme.onSurface
-                        )
+                Spacer(modifier = Modifier.width(14.dp))
+                PeriodSelector(
+                    isAM = isAM,
+                    onSelect = { am ->
+                        isAM = am
+                        handleTimeChange(hourIndex, selectedMinute)
                     }
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (!isAM) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                        onClick = { 
-                            isAM = false
-                            handleTimeChange(hourIndex, selectedMinute)
-                        }
-                    ) {
-                        Text(
-                            text = "PM",
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (!isAM) Color.White else MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
+                )
             }
+        }
+    }
+}
+
+/**
+ * 中央选择窗口：极淡的主色底 + 上下各一条发丝线。
+ * 关键是它横跨「时 : 分」整块区域，形成一个取景窗，而不是左右各一个色块。
+ */
+@Composable
+private fun BoxScope.SelectionWindow() {
+    val primary = MaterialTheme.colorScheme.primary
+    Box(
+        modifier = Modifier
+            .align(Alignment.Center)
+            .fillMaxWidth()
+            .height(WheelItemHeight)
+            .clip(Radius.md)
+            .background(primary.copy(alpha = 0.07f))
+            .drawBehind {
+                val stroke = 1.dp.toPx()
+                // 顶线与底线各内缩半个线宽，保证 1dp 落在像素中心，避免出现 2px 灰边
+                drawLine(
+                    color = primary.copy(alpha = 0.18f),
+                    start = Offset(0f, stroke / 2),
+                    end = Offset(size.width, stroke / 2),
+                    strokeWidth = stroke
+                )
+                drawLine(
+                    color = primary.copy(alpha = 0.18f),
+                    start = Offset(0f, size.height - stroke / 2),
+                    end = Offset(size.width, size.height - stroke / 2),
+                    strokeWidth = stroke
+                )
+            }
+    )
+}
+
+/** 时与分之间的分隔符：用两个实心圆点，比冒号字形更稳、不会随字体基线漂移 */
+@Composable
+private fun HourMinuteSeparator() {
+    val color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+    Column(
+        modifier = Modifier.padding(horizontal = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(color))
+        Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(color))
+    }
+}
+
+/** 上午/下午：竖向分段控件，选中实底、未选中细描边 */
+@Composable
+private fun PeriodSelector(isAM: Boolean, onSelect: (Boolean) -> Unit) {
+    // 两个胶囊加起来略小于选择窗高度，整组才能稳稳落在窗内、不会顶出上下发丝线
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        PeriodChip(text = "AM", selected = isAM, onClick = { onSelect(true) })
+        PeriodChip(text = "PM", selected = !isAM, onClick = { onSelect(false) })
+    }
+}
+
+@Composable
+private fun PeriodChip(text: String, selected: Boolean, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.size(width = 46.dp, height = 24.dp),
+        shape = Radius.sm,
+        color = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
+        contentColor = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+        border = if (selected) null else BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+        )
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = text,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.6.sp
+            )
         }
     }
 }
@@ -177,15 +223,15 @@ fun InfiniteWheelPicker(
     modifier: Modifier = Modifier
 ) {
     val visibleItemCount = 5
-    val itemHeight = 56.dp
-    
+    val itemHeight = WheelItemHeight
+
     // 使用大数值实现无限循环
     val totalItems = items.size
     val middleIndex = Int.MAX_VALUE / 2
     val startIndex = middleIndex - (middleIndex % totalItems) + initialIndex
-    
+
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = startIndex - 2)
-    
+
     // 监听initialIndex变化，滚动到正确位置
     LaunchedEffect(initialIndex) {
         val targetIndex = middleIndex - (middleIndex % totalItems) + initialIndex - 2
@@ -193,70 +239,45 @@ fun InfiniteWheelPicker(
             listState.scrollToItem(targetIndex)
         }
     }
-    
+
     // 计算当前选中项
     val centerIndex by remember { derivedStateOf { listState.firstVisibleItemIndex + 2 } }
     val actualIndex = centerIndex % totalItems
-    
+
     // 滚动偏移量
     val scrollOffset by remember { derivedStateOf { listState.firstVisibleItemScrollOffset } }
     val isScrolling = scrollOffset != 0
-    
+
     // 监听选中变化
     LaunchedEffect(actualIndex, isScrolling) {
         if (!isScrolling) {
             onSelectedChange(actualIndex)
         }
     }
-    
+
     Box(
         modifier = modifier.height(itemHeight * visibleItemCount)
     ) {
-        // 选中项高亮背景
-        Box(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .fillMaxWidth(0.9f)
-                .height(itemHeight)
-                .clip(Radius.md)
-                .background(
-                    Brush.horizontalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                        )
-                    )
-                )
-        )
-        
-        // 滚动列表
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
             flingBehavior = rememberSnapFlingBehavior(lazyListState = listState)
         ) {
-            // 无限循环项
             items(count = Int.MAX_VALUE) { index ->
                 val actualItemIndex = index % totalItems
                 val distanceFromCenter = abs(index - centerIndex)
                 val isSelected = distanceFromCenter == 0 && !isScrolling
-                
-                // 根据距离中心的远近计算透明度和缩放
-                val alpha = when {
-                    distanceFromCenter == 0 -> 1f
-                    distanceFromCenter == 1 -> 0.6f
-                    distanceFromCenter == 2 -> 0.3f
-                    else -> 0.1f
+
+                // 距离越远越淡：这就是滚轮的"虚化"，不再需要额外的白色渐变遮罩
+                // （那层遮罩在米色背景上会露出白色方块，是这一版修掉的主要视觉问题）
+                val alpha = when (distanceFromCenter) {
+                    0 -> 1f
+                    1 -> 0.55f
+                    2 -> 0.26f
+                    else -> 0.08f
                 }
-                
-                val scale = when {
-                    distanceFromCenter == 0 -> 1.15f
-                    distanceFromCenter == 1 -> 0.95f
-                    else -> 0.85f
-                }
-                
+
                 Box(
                     modifier = Modifier
                         .height(itemHeight)
@@ -266,7 +287,7 @@ fun InfiniteWheelPicker(
                 ) {
                     Text(
                         text = items[actualItemIndex],
-                        fontSize = if (isSelected) 36.sp else 28.sp,
+                        fontSize = if (isSelected) 34.sp else 26.sp,
                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Light,
                         color = if (isSelected) {
                             MaterialTheme.colorScheme.primary
@@ -274,43 +295,12 @@ fun InfiniteWheelPicker(
                             MaterialTheme.colorScheme.onSurface
                         },
                         textAlign = TextAlign.Center,
-                        maxLines = 1
+                        maxLines = 1,
+                        style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
                     )
                 }
             }
         }
-        
-        // 顶部渐变遮罩
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .height(itemHeight * 1.5f)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-                            MaterialTheme.colorScheme.surface.copy(alpha = 0f)
-                        )
-                    )
-                )
-        )
-        
-        // 底部渐变遮罩
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .height(itemHeight * 1.5f)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.surface.copy(alpha = 0f),
-                            MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
-                        )
-                    )
-                )
-        )
     }
 }
 

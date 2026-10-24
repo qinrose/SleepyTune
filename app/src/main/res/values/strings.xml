@@ -54,8 +54,9 @@
 
     <!-- Alarm Actions -->
     <string name="alarm_stop">Stop</string>
-    <string name="alarm_stop_vibrate">Stop Vibration</string>
-    <string name="alarm_pause_vibrate">Pause Vibration</string>
+    <string name="alarm_stop_vibrate">Stop vibration now</string>
+    <!-- Lunar date suffix, e.g. "Lunar 9/14"; only shown for Chinese locales -->
+    <string name="alarm_lunar_date">Lunar %1$s</string>
     <string name="alarm_snooze_action">Snooze</string>
     <string name="alarm_dismiss">Dismiss</string>
 

@@ -13,7 +13,8 @@ data class AlarmConfig(
     val fadeInEnabled: Boolean = true,
     val fadeInDuration: Int = 30,
     val snoozeMinutes: Int = 5,
-    val snoozeEnabled: Boolean = true
+    // 贪睡必须由闹钟自身开关决定，缺省为关闭：没有显式开启就不提供贪睡入口
+    val snoozeEnabled: Boolean = false
 ) {
     // 是否跟随系统闹钟音量（volume < 0 表示跟随系统）
     val followSystemVolume: Boolean = volume < 0
@@ -33,7 +34,7 @@ data class AlarmConfig(
                 fadeInEnabled = intent.getBooleanExtra("fade_in_enabled", true),
                 fadeInDuration = intent.getIntExtra("fade_in_duration", 30),
                 snoozeMinutes = intent.getIntExtra("snooze_minutes", 5),
-                snoozeEnabled = intent.getBooleanExtra("snooze_enabled", true)
+                snoozeEnabled = intent.getBooleanExtra("snooze_enabled", false)
             )
         }
     }

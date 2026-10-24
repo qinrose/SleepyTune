@@ -28,6 +28,7 @@ class AlarmSnoozeManager @Inject constructor(
         private const val KEY_SNOOZE_FADE_IN_ENABLED = "snooze_fade_in_enabled"
         private const val KEY_SNOOZE_FADE_IN_DURATION = "snooze_fade_in_duration"
         private const val KEY_SNOOZE_MINUTES = "snooze_minutes"
+        private const val KEY_SNOOZE_ENABLED = "snooze_enabled"
         
         const val SNOOZE_MINUTES = 5
         const val ACTION_SNOOZE_TRIGGER = "com.sleepytune.app.SNOOZE_TRIGGER"
@@ -46,7 +47,8 @@ class AlarmSnoozeManager @Inject constructor(
         shuffleMode: Boolean = false,
         fadeInEnabled: Boolean = true,
         fadeInDuration: Int = 30,
-        snoozeMinutes: Int = 5
+        snoozeMinutes: Int = 5,
+        snoozeEnabled: Boolean = false
     ) {
         val triggerTime = System.currentTimeMillis() + (snoozeMinutes * 60 * 1000L)
         
@@ -62,6 +64,7 @@ class AlarmSnoozeManager @Inject constructor(
             putBoolean(KEY_SNOOZE_FADE_IN_ENABLED, fadeInEnabled)
             putInt(KEY_SNOOZE_FADE_IN_DURATION, fadeInDuration)
             putInt(KEY_SNOOZE_MINUTES, snoozeMinutes)
+            putBoolean(KEY_SNOOZE_ENABLED, snoozeEnabled)
             apply()
         }
         
@@ -122,12 +125,13 @@ class AlarmSnoozeManager @Inject constructor(
         shuffleMode: Boolean = false,
         fadeInEnabled: Boolean = true,
         fadeInDuration: Int = 30,
-        snoozeMinutes: Int = 5
+        snoozeMinutes: Int = 5,
+        snoozeEnabled: Boolean = false
     ) {
         val triggerTime = System.currentTimeMillis() + (snoozeMinutes * 60 * 1000L)
         
         // 保存贪睡状态
-        saveSnoozeState(alarmId, playlistId, ringtone, vibrate, volume, label, shuffleMode, fadeInEnabled, fadeInDuration, snoozeMinutes)
+        saveSnoozeState(alarmId, playlistId, ringtone, vibrate, volume, label, shuffleMode, fadeInEnabled, fadeInDuration, snoozeMinutes, snoozeEnabled)
         
         // 调度AlarmManager
         val intent = Intent(context, AlarmReceiver::class.java).apply {
@@ -143,6 +147,7 @@ class AlarmSnoozeManager @Inject constructor(
             putExtra("fade_in_enabled", fadeInEnabled)
             putExtra("fade_in_duration", fadeInDuration)
             putExtra("snooze_minutes", snoozeMinutes)
+            putExtra("snooze_enabled", snoozeEnabled)
         }
         
         val pendingIntent = PendingIntent.getBroadcast(

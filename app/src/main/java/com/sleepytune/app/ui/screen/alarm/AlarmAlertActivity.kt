@@ -11,11 +11,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -23,9 +18,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.Snooze
 import androidx.compose.material.icons.filled.Stop
@@ -50,6 +42,7 @@ import com.sleepytune.app.service.AlarmPlaybackService
 import com.sleepytune.app.service.AlarmReceiver
 import com.sleepytune.app.ui.theme.AlarmColorConfig
 import com.sleepytune.app.ui.theme.SleepyTuneTheme
+import com.sleepytune.app.utils.LunarDate
 import com.sleepytune.app.ui.viewmodel.SettingsViewModel
 import java.text.SimpleDateFormat
 import java.util.*
@@ -153,7 +146,12 @@ class AlarmAlertActivity : ComponentActivity() {
 
         setContent {
             SleepyTuneTheme(edgeToEdge = true) {
-                AlarmAlertScreen(alarmId = alarmId, alarmLabel = alarmLabel, snoozeEnabled = snoozeEnabled)
+                AlarmAlertScreen(
+                    alarmId = alarmId,
+                    alarmLabel = alarmLabel,
+                    snoozeEnabled = snoozeEnabled,
+                    alarmVibrate = alarmVibrate
+                )
             }
         }
     }
@@ -206,7 +204,7 @@ class AlarmAlertActivity : ComponentActivity() {
 
         val alarmId = prefs.getLong("alarm_id", -1L)
         val label = prefs.getString("alarm_label", getString(R.string.alarm_title)) ?: getString(R.string.alarm_title)
-        val snoozeEnabled = prefs.getBoolean("snooze_enabled", true)
+        val snoozeEnabled = prefs.getBoolean("snooze_enabled", false)
 
         val playlistPrefs = getSharedPreferences("alarm_playlist", MODE_PRIVATE)
         val playlistId = playlistPrefs.getLong("playlist_id", 0L)
@@ -268,12 +266,16 @@ class AlarmAlertActivity : ComponentActivity() {
 
     private var alarmId by mutableStateOf(-1L)
     private var alarmLabel by mutableStateOf("")
-    private var snoozeEnabled by mutableStateOf(true)
+    // 贪睡必须由闹钟自身的开关决定，缺省关闭
+    private var snoozeEnabled by mutableStateOf(false)
+    // 闹钟是否配置了震动（决定响铃界面是否提供「立即停止震动」）
+    private var alarmVibrate by mutableStateOf(true)
 
     private fun handleIntent(intent: Intent) {
         alarmId = intent.getLongExtra("alarm_id", -1L)
         alarmLabel = intent.getStringExtra("label") ?: ""
-        snoozeEnabled = intent.getBooleanExtra("snooze_enabled", true)
+        snoozeEnabled = intent.getBooleanExtra("snooze_enabled", false)
+        alarmVibrate = intent.getBooleanExtra("vibrate", true)
     }
 
     override fun onDestroy() {
@@ -285,7 +287,12 @@ class AlarmAlertActivity : ComponentActivity() {
 }
 
 @Composable
-fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) {
+fun AlarmAlertScreen(
+    alarmId: Long,
+    alarmLabel: String,
+    snoozeEnabled: Boolean,
+    alarmVibrate: Boolean = true
+) {
     val context = LocalContext.current
     // 配色跟随应用主题（深色=深夜森林玻璃态，浅色=暖米纸杂志）
     val cfg = AlarmColorConfig.forTheme(isSystemInDarkTheme())
@@ -293,15 +300,14 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
     var songTitle by remember { mutableStateOf("") }
     var songArtist by remember { mutableStateOf("") }
     var playbackWarning by remember { mutableStateOf<String?>(null) }
-    var isVibrating by remember { mutableStateOf(false) }
-    var shouldVibrate by remember { mutableStateOf(true) }
-    var showVibrationControls by remember { mutableStateOf(false) }
+    var shouldVibrate by remember { mutableStateOf(alarmVibrate) }
 
     val fallbackDefaultReason = stringResource(R.string.fallback_music_failed)
 
     var currentTime by remember { mutableStateOf("") }
     var currentDate by remember { mutableStateOf("") }
     var currentWeekday by remember { mutableStateOf("") }
+    var currentLunar by remember { mutableStateOf<String?>(null) }
 
     val activity = context as? AlarmAlertActivity
     val view = LocalView.current
@@ -329,12 +335,11 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
             songArtist = prefs.getString("song_artist", "") ?: ""
         }
         // 界面可能晚于回退广播注册，从持久化状态补读
-        playbackWarning = context.getSharedPreferences("alarm_state", android.content.Context.MODE_PRIVATE)
-            .getString("fallback_reason", null)
-        shouldVibrate = context.getSharedPreferences("alarm_state", android.content.Context.MODE_PRIVATE)
-            .getBoolean("should_vibrate", true)
-        isVibrating = context.getSharedPreferences("alarm_state", android.content.Context.MODE_PRIVATE)
-            .getBoolean("is_vibrating", false)
+        val statePrefs = context.getSharedPreferences("alarm_state", android.content.Context.MODE_PRIVATE)
+        playbackWarning = statePrefs.getString("fallback_reason", null)
+        // 震动开关以闹钟自身配置为权威来源（alarmVibrate 由 Intent 携带），
+        // 持久化状态只用来兜底「当前是否正在震动」
+        shouldVibrate = shouldVibrate || statePrefs.getBoolean("should_vibrate", false)
     }
 
     DisposableEffect(Unit) {
@@ -357,8 +362,8 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                             val prefs = context.getSharedPreferences("alarm_state", android.content.Context.MODE_PRIVATE)
                             songTitle = prefs.getString("song_title", "") ?: ""
                             songArtist = prefs.getString("song_artist", "") ?: ""
-                            shouldVibrate = prefs.getBoolean("should_vibrate", true)
-                            isVibrating = prefs.getBoolean("is_vibrating", false)
+                            // 震动开关以闹钟自身配置为准
+                            shouldVibrate = alarmVibrate
                         }
                         AlarmPlaybackReceiver.ACTION_FINISH_ACTIVITY -> {
                             activity?.finish()
@@ -381,15 +386,29 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
         onDispose { context.unregisterReceiver(receiver) }
     }
 
+    // 时间只到分钟，按秒轮询纯属浪费；但为了跨天/跨小时立刻刷新，
+    // 仍然每秒检查一次，只有在显示值真的变化时才写入 State（避免无意义重组）。
     LaunchedEffect(Unit) {
         while (true) {
             val now = Calendar.getInstance()
-            currentTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(now.time)
-            currentDate = SimpleDateFormat(
-                android.text.format.DateFormat.getBestDateTimePattern(Locale.getDefault(), "MMMd"),
-                Locale.getDefault()
+            val locale = Locale.getDefault()
+            val time = SimpleDateFormat("HH:mm", locale).format(now.time)
+            if (time != currentTime) currentTime = time
+
+            val date = SimpleDateFormat(
+                android.text.format.DateFormat.getBestDateTimePattern(locale, "MMMd"),
+                locale
             ).format(now.time)
-            currentWeekday = now.getDisplayName(Calendar.DAY_OF_WEEK, Calendar.SHORT, Locale.getDefault()) ?: ""
+            if (date != currentDate) currentDate = date
+
+            // 完整星期名：中文「星期六」/ 英文「Saturday」
+            val weekday = now.getDisplayName(Calendar.DAY_OF_WEEK, Calendar.LONG, locale) ?: ""
+            if (weekday != currentWeekday) currentWeekday = weekday
+
+            // 农历只在中文环境展示，失败则留空
+            val lunar = if (LunarDate.isChineseLocale(locale)) LunarDate.format(now.timeInMillis) else null
+            if (lunar != currentLunar) currentLunar = lunar
+
             kotlinx.coroutines.delay(1000)
         }
     }
@@ -414,7 +433,7 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                 .padding(horizontal = 28.dp, vertical = 24.dp),
             horizontalAlignment = Alignment.Start
         ) {
-            // 杂志刊头
+            // 杂志刊头：标题 + 日期
             Text(
                 text = "SLEEPY TUNE",
                 fontFamily = FontFamily.Serif,
@@ -424,8 +443,10 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                 color = cfg.TextAccent
             )
             Spacer(modifier = Modifier.height(8.dp))
+
+            // 大标题：优先用户自定义标签；没有标签时用「星期几」当刊头标题
             Text(
-                text = alarmLabel.ifEmpty { "MORNING EDITION" },
+                text = alarmLabel.ifEmpty { currentWeekday },
                 fontFamily = FontFamily.Serif,
                 fontSize = 30.sp,
                 fontWeight = FontWeight.Bold,
@@ -433,6 +454,29 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
+
+            // 日期行：星期几 · 几月几号 · 农历（中文环境）
+            // 标题已经占用「星期几」时不再重复
+            val lunarLabel = currentLunar?.takeIf { it.isNotEmpty() }
+                ?.let { stringResource(R.string.alarm_lunar_date, it) }
+            val dateDetail = listOfNotNull(
+                currentWeekday.takeIf { alarmLabel.isNotEmpty() && it.isNotEmpty() },
+                currentDate.takeIf { it.isNotEmpty() },
+                lunarLabel
+            ).joinToString("  ·  ")
+            if (dateDetail.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = dateDetail,
+                    fontFamily = FontFamily.Serif,
+                    fontSize = 14.sp,
+                    letterSpacing = 1.sp,
+                    color = cfg.TextSecondary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -443,7 +487,7 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // 杂志封面式大时间
+            // 杂志封面式大时间（日期/星期已上移到刊头，避免两处重复）
             Text(
                 text = currentTime,
                 fontFamily = FontFamily.Serif,
@@ -451,12 +495,6 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                 fontWeight = FontWeight.Light,
                 letterSpacing = 2.sp,
                 color = cfg.TextPrimary
-            )
-            Text(
-                text = "$currentDate  ·  $currentWeekday",
-                fontFamily = FontFamily.Serif,
-                fontSize = 18.sp,
-                color = cfg.TextSecondary
             )
 
             Spacer(modifier = Modifier.weight(1f))
@@ -481,7 +519,8 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                 Spacer(modifier = Modifier.height(20.dp))
             }
 
-            // 主操作区
+            // 主操作区：贪睡类动作只保留一个——「稍后再震」（跟随闹钟的贪睡开关）；
+            // 「停止闹钟」任何情况下都必须有。
             if (snoozeEnabled) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -500,7 +539,12 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                     ) {
                         Icon(Icons.Default.Snooze, null, modifier = Modifier.size(20.dp), tint = cfg.TextPrimary)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(stringResource(R.string.alarm_snooze), color = cfg.TextPrimary)
+                        Text(
+                            stringResource(R.string.alarm_snooze),
+                            color = cfg.TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
 
                     Button(
@@ -539,68 +583,44 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                 }
             }
 
-            // 震动控制收纳为“更多”，避免主界面复杂
-            if (shouldVibrate && isVibrating) {
-                Spacer(modifier = Modifier.height(8.dp))
-                TextButton(
-                    onClick = { showVibrationControls = !showVibrationControls },
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                ) {
-                    Icon(
-                        if (showVibrationControls) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint = cfg.TextSecondary
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        if (showVibrationControls) stringResource(R.string.alarm_pause_vibrate) else stringResource(R.string.alarm_vibration_controls),
-                        color = cfg.TextSecondary
-                    )
-                }
-                AnimatedVisibility(
-                    visible = showVibrationControls,
-                    enter = fadeIn() + slideInVertically { it / 2 },
-                    exit = fadeOut() + slideOutVertically { it / 2 }
-                ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = {
-                                context.startService(Intent(context, AlarmPlaybackService::class.java).apply {
-                                    action = AlarmPlaybackService.ACTION_PAUSE_VIBRATE
-                                })
-                                isVibrating = false
-                            },
-                            shape = Radius.md,
-                            border = androidx.compose.foundation.BorderStroke(1.dp, cfg.CardBorder),
-                            modifier = Modifier.weight(1f).height(44.dp)
-                        ) {
-                            Icon(Icons.Default.Pause, null, modifier = Modifier.size(18.dp), tint = cfg.TextSecondary)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(stringResource(R.string.alarm_pause_vibrate), color = cfg.TextSecondary, fontSize = 13.sp)
-                        }
-                        OutlinedButton(
-                            onClick = {
-                                context.startService(Intent(context, AlarmPlaybackService::class.java).apply {
-                                    action = AlarmPlaybackService.ACTION_STOP_VIBRATE
-                                })
-                                isVibrating = false
-                            },
-                            shape = Radius.md,
-                            border = androidx.compose.foundation.BorderStroke(1.dp, cfg.CardBorder),
-                            modifier = Modifier.weight(1f).height(44.dp)
-                        ) {
-                            Icon(Icons.Default.Vibration, null, modifier = Modifier.size(18.dp), tint = cfg.TextSecondary)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(stringResource(R.string.alarm_stop_vibrate), color = cfg.TextSecondary, fontSize = 13.sp)
-                        }
+            // 震动操作区：不折叠、常驻可见。
+            // 这里只保留「立即停止震动」——它是必须提供的一键动作；
+            // 贪睡类动作已统一为上面唯一的一个「稍后再震」，不在震动区重复出现。
+            if (shouldVibrate) {
+                Spacer(modifier = Modifier.height(10.dp))
+                SecondaryAlarmAction(
+                    icon = Icons.Default.Vibration,
+                    label = stringResource(R.string.alarm_stop_vibrate),
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = {
+                        context.startService(Intent(context, AlarmPlaybackService::class.java).apply {
+                            action = AlarmPlaybackService.ACTION_STOP_VIBRATE
+                        })
                     }
-                }
+                )
             }
         }
+    }
+}
+
+// 次级动作按钮：细描边、无填充、低饱和文字，避免和主操作抢注意力
+@Composable
+private fun SecondaryAlarmAction(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val cfg = AlarmColorConfig.forTheme(isSystemInDarkTheme())
+    OutlinedButton(
+        onClick = onClick,
+        shape = Radius.md,
+        border = androidx.compose.foundation.BorderStroke(1.dp, cfg.CardBorder),
+        modifier = modifier.height(46.dp)
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp), tint = cfg.TextSecondary)
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(label, color = cfg.TextSecondary, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

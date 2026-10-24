@@ -166,6 +166,12 @@ class AlarmPlaybackService : Service() {
         } else {
             vibrationController.stop()
         }
+        // 立即把震动状态写入跨进程存储：响铃界面据此决定是否展示「立即停止震动」
+        alarmStateManager.persistVibrateState(
+            applicationContext,
+            config.vibrate,
+            config.vibrate && config.vibrateDelayMinutes <= 0
+        )
         
         // 加载并播放（audioPlayer 内部会切换到主线程）
         CoroutineScope(Dispatchers.IO).launch {
@@ -309,7 +315,8 @@ class AlarmPlaybackService : Service() {
             shuffleMode = c.shuffleMode,
             fadeInEnabled = c.fadeInEnabled,
             fadeInDuration = c.fadeInDuration,
-            snoozeMinutes = c.snoozeMinutes
+            snoozeMinutes = c.snoozeMinutes,
+            snoozeEnabled = c.snoozeEnabled
         )
         notificationHelper.showSnoozeNotification(c.label, c.snoozeMinutes)
         // 贪睡期间不应继续占用“正在播放”前台服务，交给 AlarmManager 到点再唤醒
@@ -386,7 +393,9 @@ class AlarmPlaybackService : Service() {
             isPlaying = true,
             songTitle = title,
             songIndex = index,
-            songTotal = total
+            songTotal = total,
+            isVibrating = vibrationController.isVibrating(),
+            snoozeEnabled = config?.snoozeEnabled ?: false
         )
         startForeground(NotificationHelper.NOTIFICATION_ID_ALARM, notification)
     }

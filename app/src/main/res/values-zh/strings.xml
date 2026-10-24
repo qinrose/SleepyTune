@@ -20,7 +20,7 @@
     <string name="alarm_label">标签</string>
     <string name="alarm_ringtone">铃声</string>
     <string name="alarm_vibrate">震动</string>
-    <string name="alarm_snooze">贪睡</string>
+    <string name="alarm_snooze">稍后再震</string>
     <string name="alarm_duration">时长</string>
     <string name="alarm_volume">音量</string>
     <string name="alarm_playlist">歌单</string>
@@ -54,9 +54,10 @@
 
     <!-- Alarm Actions -->
     <string name="alarm_stop">停止</string>
-    <string name="alarm_stop_vibrate">关闭震动</string>
-    <string name="alarm_pause_vibrate">稍后再震</string>
-    <string name="alarm_snooze_action">贪睡</string>
+    <string name="alarm_stop_vibrate">立即停止震动</string>
+    <!-- 农历日期前缀，例如「农历九月十四」 -->
+    <string name="alarm_lunar_date">农历%1$s</string>
+    <string name="alarm_snooze_action">稍后再震</string>
     <string name="alarm_dismiss">关闭</string>
 
     <!-- Music -->

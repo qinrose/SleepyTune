@@ -133,7 +133,9 @@ class NotificationHelper @Inject constructor(
         isVibrating: Boolean = false,
         alarmId: Long = -1L,
         playlistName: String? = null,
-        nextAlarmTime: String? = null
+        nextAlarmTime: String? = null,
+        // 贪睡动作必须与闹钟自身的贪睡开关一致：关掉贪睡就不该在通知和界面上出现贪睡
+        snoozeEnabled: Boolean = false
     ): Notification {
         val contentIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -194,14 +196,6 @@ class NotificationHelper @Inject constructor(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val pauseVibrateIntent = Intent(context, AlarmPlaybackReceiver::class.java).apply {
-            action = "com.sleepytune.app.ACTION_PAUSE_VIBRATE"
-        }
-        val pauseVibratePendingIntent = PendingIntent.getBroadcast(
-            context, 4, pauseVibrateIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
         return NotificationCompat.Builder(context, CHANNEL_ID_ALARM)
             .setContentTitle(alarmLabel.ifEmpty { context.getString(R.string.alarm_title) })
             .setContentText(contentText)
@@ -216,11 +210,13 @@ class NotificationHelper @Inject constructor(
             .setSound(null)
             .setDefaults(0)
             .addAction(android.R.drawable.ic_media_pause, context.getString(R.string.alarm_stop), stopPendingIntent)
-            .addAction(android.R.drawable.ic_media_next, context.getString(R.string.alarm_snooze_action), snoozePendingIntent)
             .apply {
+                // 贪睡只在闹钟开启贪睡时提供，避免"没开贪睡却有贪睡按钮"
+                if (snoozeEnabled) {
+                    addAction(android.R.drawable.ic_media_next, context.getString(R.string.alarm_snooze_action), snoozePendingIntent)
+                }
                 if (isVibrating) {
                     addAction(android.R.drawable.ic_lock_silent_mode, context.getString(R.string.alarm_stop_vibrate), stopVibratePendingIntent)
-                    addAction(android.R.drawable.ic_media_pause, context.getString(R.string.alarm_pause_vibrate), pauseVibratePendingIntent)
                 }
                 nextAlarmTime?.let { setSubText(context.getString(R.string.notification_next_alarm, it)) }
             }
@@ -259,7 +255,8 @@ class NotificationHelper @Inject constructor(
         songTotal: Int = 0,
         isVibrating: Boolean = false,
         playlistName: String? = null,
-        nextAlarmTime: String? = null
+        nextAlarmTime: String? = null,
+        snoozeEnabled: Boolean = false
     ) {
         val notification = buildAlarmNotification(
             alarmLabel = alarmLabel,
@@ -269,7 +266,8 @@ class NotificationHelper @Inject constructor(
             songTotal = songTotal,
             isVibrating = isVibrating,
             playlistName = playlistName,
-            nextAlarmTime = nextAlarmTime
+            nextAlarmTime = nextAlarmTime,
+            snoozeEnabled = snoozeEnabled
         )
         notificationManager.notify(NOTIFICATION_ID_ALARM, notification)
     }

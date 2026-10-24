@@ -182,10 +182,10 @@ class AlarmStateManager @Inject constructor() {
         val snoozeMinutes: Int
     )
 
-    // 获取贪睡启用状态
+    // 获取贪睡启用状态（缺省关闭：没有显式写入就不认为开了贪睡）
     fun getSnoozeEnabledCrossProcess(context: Context): Boolean {
         return context.getSharedPreferences("alarm_state", Context.MODE_PRIVATE)
-            .getBoolean("snooze_enabled", true)
+            .getBoolean("snooze_enabled", false)
     }
 
     // 获取震动状态
