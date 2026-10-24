@@ -26,6 +26,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -295,6 +296,25 @@ fun MainScreen(widthSizeClass: WindowWidthSizeClass) {
                 PermissionGuideScreen(onNavigateBack = { navController.popBackStack() }, onAllPermissionsGranted = { navController.popBackStack() })
             }
                 }
+
+                // 内容在底部栏上方柔和淡出：替代一条生硬的分隔线，
+                // 滚动到末页时列表也不会被"一刀切"。
+                if (!useNavigationRail) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .height(14.dp)
+                            .background(
+                                Brush.verticalGradient(
+                                    listOf(
+                                        Color.Transparent,
+                                        MaterialTheme.colorScheme.background
+                                    )
+                                )
+                            )
+                    )
+                }
             }
         }
     }
@@ -305,24 +325,22 @@ fun MainScreen(widthSizeClass: WindowWidthSizeClass) {
  *
  * 为什么不用 M3 NavigationBar：
  * 它的固定 80dp 高度 + 内建的上下留白，在"图标 + 文字"只有 40dp 的场景里
- * 会在分隔线下面留出一整条空白，看起来像没做完。这里用紧凑的自定义实现：
- * 分隔线 → 6dp → 图标胶囊 26dp → 3dp → 文字 → 6dp，总高约 63dp（不含手势条 inset），
- * 视觉上更贴近内容，也不再有多余的空带。
+ * 会留出一整条空白，看起来像没做完。这里用紧凑的自定义实现：
+ * 4dp → 图标胶囊 26dp → 3dp → 文字 → 4dp，总高约 59dp（不含手势条 inset）。
+ * 也不画分隔线：内容区在栏顶有一道淡出，越过淡出带才是栏，视觉上是一张连续的纸。
  */
 @Composable
 private fun AppBottomBar(currentRoute: String?, onSelect: (String) -> Unit) {
     val scheme = MaterialTheme.colorScheme
+    // 不画分隔线：底部栏与页面是同一张纸，靠内容在栏顶的淡出来分界，
+    // 而不是画一条横线（横线会把"线的上方"变成一条看起来多余的空白带）。
     Surface(color = scheme.background, tonalElevation = 0.dp) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            HorizontalDivider(
-                thickness = 1.dp,
-                color = scheme.outlineVariant.copy(alpha = 0.5f)
-            )
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
