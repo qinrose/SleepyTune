@@ -117,7 +117,9 @@ class AlarmReceiver : BroadcastReceiver() {
         val vibrate = intent.getBooleanExtra(EXTRA_VIBRATE, true)
         val vibrateDelayMinutes = intent.getIntExtra(EXTRA_VIBRATE_DELAY_MINUTES, 0)
         val volume = intent.getFloatExtra(EXTRA_VOLUME, 1.0f)
-        val label = intent.getStringExtra(EXTRA_LABEL) ?: context.getString(R.string.alarm_title)
+        // 标签为空就保持为空：默认标题由界面统一决定（显示「闹钟」），
+        // 否则服务层编造的文案会被当成"用户自己填的标签"显示出来
+        val label = intent.getStringExtra(EXTRA_LABEL).orEmpty()
         val shuffleMode = intent.getBooleanExtra(EXTRA_SHUFFLE_MODE, false)
         val fadeInEnabled = intent.getBooleanExtra(EXTRA_FADE_IN_ENABLED, true)
         val fadeInDuration = intent.getIntExtra(EXTRA_FADE_IN_DURATION, 30)
@@ -296,7 +298,7 @@ class AlarmReceiver : BroadcastReceiver() {
         val ringtonePath = intent.getStringExtra("ringtone_path")
         val vibrate = intent.getBooleanExtra("vibrate", true)
         val volume = intent.getFloatExtra("volume", 1.0f)
-        val label = intent.getStringExtra("label") ?: context.getString(R.string.alarm_title)
+        val label = intent.getStringExtra("label").orEmpty()
         val shuffleMode = intent.getBooleanExtra("shuffle_mode", false)
         val fadeInEnabled = intent.getBooleanExtra("fade_in_enabled", true)
         val fadeInDuration = intent.getIntExtra("fade_in_duration", 30)

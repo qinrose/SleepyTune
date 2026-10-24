@@ -29,8 +29,9 @@ import androidx.compose.ui.res.stringResource
 import com.sleepytune.app.R
 import kotlin.math.abs
 
-// 滚轮单行高度：5 行可见 = 280dp，正好让选中行落在正中
-private val WheelItemHeight = 56.dp
+// 滚轮单行高度：5 行可见。64dp 让选中的数字和右侧 AM/PM 都有足够体量，
+// 不会出现"按钮比数字小一圈"的失衡感。
+private val WheelItemHeight = 64.dp
 
 @Composable
 fun TimePickerWheel(
@@ -183,7 +184,7 @@ private fun HourMinuteSeparator() {
 /** 上午/下午：竖向分段控件，选中实底、未选中细描边 */
 @Composable
 private fun PeriodSelector(isAM: Boolean, onSelect: (Boolean) -> Unit) {
-    // 两个胶囊加起来略小于选择窗高度，整组才能稳稳落在窗内、不会顶出上下发丝线
+    // 两个胶囊加起来比选择窗高度略小 2dp，整组落在窗内、不会顶出上下发丝线
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         PeriodChip(text = "AM", selected = isAM, onClick = { onSelect(true) })
         PeriodChip(text = "PM", selected = !isAM, onClick = { onSelect(false) })
@@ -194,7 +195,7 @@ private fun PeriodSelector(isAM: Boolean, onSelect: (Boolean) -> Unit) {
 private fun PeriodChip(text: String, selected: Boolean, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
-        modifier = Modifier.size(width = 46.dp, height = 24.dp),
+        modifier = Modifier.size(width = 54.dp, height = 28.dp),
         shape = Radius.sm,
         color = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
         contentColor = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -206,7 +207,7 @@ private fun PeriodChip(text: String, selected: Boolean, onClick: () -> Unit) {
         Box(contentAlignment = Alignment.Center) {
             Text(
                 text = text,
-                fontSize = 12.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 0.6.sp
             )
@@ -287,7 +288,7 @@ fun InfiniteWheelPicker(
                 ) {
                     Text(
                         text = items[actualItemIndex],
-                        fontSize = if (isSelected) 34.sp else 26.sp,
+                        fontSize = if (isSelected) 36.sp else 28.sp,
                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Light,
                         color = if (isSelected) {
                             MaterialTheme.colorScheme.primary

@@ -444,9 +444,10 @@ fun AlarmAlertScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 大标题：优先用户自定义标签；没有标签时用「星期几」当刊头标题
+            // 大标题：用户自定义标签；未填标签时统一显示「闹钟」
+            val headline = alarmLabel.ifBlank { stringResource(R.string.alarm_title) }
             Text(
-                text = alarmLabel.ifEmpty { currentWeekday },
+                text = headline,
                 fontFamily = FontFamily.Serif,
                 fontSize = 30.sp,
                 fontWeight = FontWeight.Bold,
@@ -456,11 +457,10 @@ fun AlarmAlertScreen(
             )
 
             // 日期行：星期几 · 几月几号 · 农历（中文环境）
-            // 标题已经占用「星期几」时不再重复
             val lunarLabel = currentLunar?.takeIf { it.isNotEmpty() }
                 ?.let { stringResource(R.string.alarm_lunar_date, it) }
             val dateDetail = listOfNotNull(
-                currentWeekday.takeIf { alarmLabel.isNotEmpty() && it.isNotEmpty() },
+                currentWeekday.takeIf { it.isNotEmpty() },
                 currentDate.takeIf { it.isNotEmpty() },
                 lunarLabel
             ).joinToString("  ·  ")

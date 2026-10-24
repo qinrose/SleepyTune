@@ -141,7 +141,7 @@ class AlarmSnoozeManager @Inject constructor(
             putExtra("ringtone_path", ringtone)
             putExtra("vibrate", vibrate)
             putExtra("volume", volume)
-            putExtra("label", label ?: context.getString(com.sleepytune.app.R.string.alarm_title))
+            putExtra("label", label.orEmpty())
             putExtra("is_snooze", true)
             putExtra("shuffle_mode", shuffleMode)
             putExtra("fade_in_enabled", fadeInEnabled)
