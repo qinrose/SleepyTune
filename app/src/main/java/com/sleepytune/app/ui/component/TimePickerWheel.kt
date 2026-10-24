@@ -1,4 +1,5 @@
 package com.sleepytune.app.ui.component
+import com.sleepytune.app.ui.theme.Radius
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -82,7 +83,7 @@ fun TimePickerWheel(
     
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = Radius.xl,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
         )
@@ -217,7 +218,7 @@ fun InfiniteWheelPicker(
                 .align(Alignment.Center)
                 .fillMaxWidth(0.9f)
                 .height(itemHeight)
-                .clip(RoundedCornerShape(16.dp))
+                .clip(Radius.md)
                 .background(
                     Brush.horizontalGradient(
                         colors = listOf(
@@ -360,7 +361,7 @@ fun QuickRepeatOptions(
                         ) 
                     },
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = Radius.sm,
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                         selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -443,7 +444,7 @@ private fun DayChip(
     
     Surface(
         modifier = Modifier.size(size),
-        shape = RoundedCornerShape(12.dp),
+        shape = Radius.sm,
         color = when {
             isSelected -> MaterialTheme.colorScheme.primary
             isWeekend -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)

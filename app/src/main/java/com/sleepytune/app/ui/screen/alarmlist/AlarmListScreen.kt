@@ -1,4 +1,5 @@
 package com.sleepytune.app.ui.screen.alarmlist
+import com.sleepytune.app.ui.theme.Radius
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -66,22 +67,25 @@ fun AlarmListContent(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
-            // 浮动按钮：缩放动画入场
-            var fabVisible by remember { mutableStateOf(false) }
-            LaunchedEffect(Unit) { fabVisible = true }
-            AnimatedVisibility(
-                visible = fabVisible,
-                enter = scaleIn(animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)) + fadeIn(tween(200))
-            ) {
-                ExtendedFloatingActionButton(
-                    onClick = onAddClick,
-                    icon = { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp)) },
-                    text = { Text(stringResource(R.string.alarm_add), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium) },
-                    shape = RoundedCornerShape(16.dp),
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 0.dp)
-                )
+            // 空态自带主按钮，避免 CTA 重复；仅有闹钟时展示 FAB
+            if (alarms.isNotEmpty()) {
+                // 浮动按钮：缩放动画入场
+                var fabVisible by remember { mutableStateOf(false) }
+                LaunchedEffect(Unit) { fabVisible = true }
+                AnimatedVisibility(
+                    visible = fabVisible,
+                    enter = scaleIn(animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)) + fadeIn(tween(200))
+                ) {
+                    ExtendedFloatingActionButton(
+                        onClick = onAddClick,
+                        icon = { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                        text = { Text(stringResource(R.string.alarm_add), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium) },
+                        shape = Radius.md,
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 0.dp)
+                    )
+                }
             }
         }
     ) { paddingValues ->
@@ -147,7 +151,7 @@ private fun EmptyAlarmState(modifier: Modifier = Modifier, onAddClick: () -> Uni
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Card(
-            shape = RoundedCornerShape(24.dp),
+            shape = Radius.xl,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             modifier = Modifier.size(100.dp)
@@ -174,7 +178,7 @@ private fun EmptyAlarmState(modifier: Modifier = Modifier, onAddClick: () -> Uni
         Spacer(modifier = Modifier.height(32.dp))
         Button(
             onClick = onAddClick,
-            shape = RoundedCornerShape(12.dp),
+            shape = Radius.sm,
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -211,7 +215,7 @@ private fun AlarmCard(
 
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
+        shape = Radius.md,
         colors = CardDefaults.cardColors(
             containerColor = if (alarm.isEnabled)
                 MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f)
@@ -221,7 +225,7 @@ private fun AlarmCard(
         border = BorderStroke(
             1.dp,
             if (alarm.isEnabled)
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
             else
                 MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
         ),
@@ -256,8 +260,8 @@ private fun AlarmCard(
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = MaterialTheme.colorScheme.primary,
                         checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                        uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                        uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.outlineVariant
                     )
                 )
             }
@@ -327,7 +331,7 @@ private fun AlarmCard(
                     Text(stringResource(R.string.confirm_cancel))
                 }
             },
-            shape = RoundedCornerShape(20.dp),
+            shape = Radius.lg,
             containerColor = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp
         )

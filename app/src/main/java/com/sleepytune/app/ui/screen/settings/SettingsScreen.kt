@@ -1,4 +1,5 @@
 package com.sleepytune.app.ui.screen.settings
+import com.sleepytune.app.ui.theme.Radius
 
 import android.content.Context
 import android.content.Intent
@@ -18,6 +19,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -204,8 +207,8 @@ fun SettingsScreen(navController: NavController) {
     if (showThemeDialog) {
         Dialog(onDismissRequest = { showThemeDialog = false }) {
             Card(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier.fillMaxWidth().padding(16.dp).navigationBarsPadding().imePadding(),
+                shape = Radius.lg,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
@@ -269,7 +272,7 @@ fun SettingsScreen(navController: NavController) {
                 }
             },
             confirmButton = { TextButton(onClick = { showAboutDialog = false }) { Text(stringResource(R.string.confirm_ok)) } },
-            shape = RoundedCornerShape(20.dp),
+            shape = Radius.lg,
             containerColor = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp
         )
@@ -279,8 +282,8 @@ fun SettingsScreen(navController: NavController) {
     if (showTimeFormatDialog) {
         Dialog(onDismissRequest = { showTimeFormatDialog = false }) {
             Card(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier.fillMaxWidth().padding(16.dp).navigationBarsPadding().imePadding(),
+                shape = Radius.lg,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
@@ -357,7 +360,7 @@ fun SettingsScreen(navController: NavController) {
                     Text(stringResource(R.string.confirm_cancel))
                 }
             },
-            shape = RoundedCornerShape(20.dp),
+            shape = Radius.lg,
             containerColor = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp
         )
@@ -376,7 +379,7 @@ fun SettingItem(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp)
             .clickable { onClick?.invoke() },
-        shape = RoundedCornerShape(14.dp),
+        shape = Radius.md,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         ),
@@ -431,7 +434,7 @@ fun SettingSwitchItem(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(14.dp),
+        shape = Radius.md,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         ),
@@ -471,8 +474,8 @@ fun SettingSwitchItem(
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = MaterialTheme.colorScheme.primary,
                     checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                    uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    uncheckedTrackColor = MaterialTheme.colorScheme.outlineVariant
                 )
             )
         }

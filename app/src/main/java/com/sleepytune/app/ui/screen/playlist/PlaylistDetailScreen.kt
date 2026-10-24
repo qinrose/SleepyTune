@@ -1,4 +1,5 @@
 package com.sleepytune.app.ui.screen.playlist
+import com.sleepytune.app.ui.theme.Radius
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -71,7 +72,8 @@ fun PlaylistDetailScreen(navController: NavController, playlistId: Long) {
                     Column {
                         Text(
                             playlist?.name ?: stringResource(R.string.playlist_detail_title),
-                            style = MaterialTheme.typography.titleLarge
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = MaterialTheme.colorScheme.onBackground
                         )
                         if (playlistSongs.isNotEmpty()) {
                             Text(
@@ -148,7 +150,7 @@ private fun EmptyPlaylistState() {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Card(
-            shape = RoundedCornerShape(20.dp),
+            shape = Radius.lg,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             modifier = Modifier.size(100.dp)
@@ -189,7 +191,7 @@ private fun PlaylistSongItem(
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .clickable { onPlay() },
-        shape = RoundedCornerShape(14.dp),
+        shape = Radius.md,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         ),

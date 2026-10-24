@@ -1,4 +1,5 @@
 package com.sleepytune.app.ui.screen.musiclibrary
+import com.sleepytune.app.ui.theme.Radius
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -23,6 +24,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -254,7 +257,7 @@ fun MusicLibraryScreen(navController: NavController) {
             TopAppBar(
                 title = {
                     if (isSelectionMode) {
-                        Text(stringResource(R.string.music_selected_count, selectedIds.size), style = MaterialTheme.typography.titleLarge)
+                        Text(stringResource(R.string.music_selected_count, selectedIds.size), style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
                     } else if (isSearchExpanded) {
                         OutlinedTextField(
                             value = searchQuery,
@@ -798,7 +801,7 @@ fun MusicLibraryScreen(navController: NavController) {
                             Text(stringResource(R.string.action_reset)) 
                         }
                     },
-                    shape = RoundedCornerShape(20.dp),
+                    shape = Radius.lg,
                     containerColor = MaterialTheme.colorScheme.surface,
                     tonalElevation = 0.dp
                 )
@@ -820,7 +823,7 @@ private fun EmptyMusicState(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Card(
-            shape = RoundedCornerShape(20.dp),
+            shape = Radius.lg,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             modifier = Modifier.size(100.dp)
@@ -860,7 +863,7 @@ private fun EmptyMusicState(
             Spacer(modifier = Modifier.height(24.dp))
             Button(
                 onClick = onScanClick,
-                shape = RoundedCornerShape(12.dp),
+                shape = Radius.sm,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -888,8 +891,8 @@ private fun PlaylistSelectDialog(
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp).navigationBarsPadding().imePadding(),
+            shape = Radius.lg,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
@@ -922,7 +925,7 @@ private fun PlaylistSelectDialog(
                         Button(
                             onClick = { showCreateInput = false; newPlaylistName = "" },
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = Radius.sm,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
                                 contentColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -938,7 +941,7 @@ private fun PlaylistSelectDialog(
                                 }
                             },
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = Radius.sm,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -951,7 +954,7 @@ private fun PlaylistSelectDialog(
                         Button(
                             onClick = { onSelect(playlist.id) },
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = Radius.sm,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -963,7 +966,7 @@ private fun PlaylistSelectDialog(
                     Button(
                         onClick = { showCreateInput = true; newPlaylistName = "" },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = Radius.sm,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
@@ -978,7 +981,7 @@ private fun PlaylistSelectDialog(
                     Button(
                         onClick = onDismiss,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = Radius.sm,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant,
                             contentColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1013,7 +1016,7 @@ private fun MusicItem(
                 onClick = onClick,
                 onLongClick = onLongClick
             ),
-        shape = RoundedCornerShape(14.dp),
+        shape = Radius.md,
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected)
                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
@@ -1122,9 +1125,9 @@ private fun MusicItem(
 private fun ArtistListItem(artist: ArtistItem, onClick: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).combinedClickable(onClick = onClick),
-        shape = RoundedCornerShape(14.dp),
+        shape = Radius.md,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1147,9 +1150,9 @@ private fun ArtistListItem(artist: ArtistItem, onClick: () -> Unit) {
 private fun AlbumListItem(album: AlbumItem, onClick: () -> Unit, onAddToPlaylist: (() -> Unit)? = null) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).combinedClickable(onClick = onClick),
-        shape = RoundedCornerShape(14.dp),
+        shape = Radius.md,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1198,9 +1201,9 @@ private fun ArtistMusicList(
                     onClick = { onMusicClick(music) },
                     onLongClick = { onMusicLongClick(music) }
                 ),
-                shape = RoundedCornerShape(14.dp),
+                shape = Radius.md,
                 colors = CardDefaults.cardColors(containerColor = if (selectedIds.contains(music.id)) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                border = BorderStroke(width = if (selectedIds.contains(music.id)) 1.5.dp else 1.dp, color = if (selectedIds.contains(music.id)) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                border = BorderStroke(width = if (selectedIds.contains(music.id)) 1.5.dp else 1.dp, color = if (selectedIds.contains(music.id)) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {

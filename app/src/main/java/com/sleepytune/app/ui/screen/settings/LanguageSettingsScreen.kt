@@ -1,4 +1,5 @@
 package com.sleepytune.app.ui.screen.settings
+import com.sleepytune.app.ui.theme.Radius
 
 import android.app.Activity
 import android.os.Bundle
@@ -51,7 +52,8 @@ fun LanguageSettingsScreen(
                 title = {
                     Text(
                         stringResource(R.string.settings_language),
-                        style = MaterialTheme.typography.headlineMedium
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.onBackground
                     )
                 },
                 navigationIcon = {
@@ -90,7 +92,7 @@ fun LanguageSettingsScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = Radius.md,
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
                     ),
@@ -121,7 +123,7 @@ private fun LanguageItem(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp)
             .clickable { onSelect() },
-        shape = RoundedCornerShape(14.dp),
+        shape = Radius.md,
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected)
                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)

@@ -1,4 +1,5 @@
 package com.sleepytune.app.ui.screen.settings
+import com.sleepytune.app.ui.theme.Radius
 
 import android.content.Intent
 import android.net.Uri
@@ -68,7 +69,8 @@ fun PermissionGuideScreen(
                 title = {
                     Text(
                         stringResource(R.string.permission_guide_title),
-                        fontWeight = FontWeight.SemiBold
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.onBackground
                     )
                 },
                 navigationIcon = {
@@ -77,7 +79,8 @@ fun PermissionGuideScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
         }
@@ -93,7 +96,7 @@ fun PermissionGuideScreen(
             // 顶部说明卡片
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
+                shape = Radius.lg,
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
                 )
@@ -243,7 +246,7 @@ fun PermissionGuideScreen(
             ) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
+                    shape = Radius.lg,
                     colors = CardDefaults.cardColors(
                         containerColor = Color(0xFF4CAF50).copy(alpha = 0.15f)
                     )
@@ -282,7 +285,7 @@ fun PermissionGuideScreen(
             OutlinedButton(
                 onClick = { refreshPermissions() },
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                shape = Radius.sm
             ) {
                 Icon(Icons.Default.Refresh, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
@@ -294,7 +297,7 @@ fun PermissionGuideScreen(
                 Button(
                     onClick = onAllPermissionsGranted,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = Radius.sm
                 ) {
                     Text(stringResource(R.string.permission_finish_setup), fontWeight = FontWeight.Medium)
                 }
@@ -324,7 +327,7 @@ private fun PermissionItem(
         modifier = Modifier
             .fillMaxWidth()
             .scale(scale),
-        shape = RoundedCornerShape(16.dp),
+        shape = Radius.md,
         colors = CardDefaults.cardColors(
             containerColor = if (isGranted) {
                 Color(0xFF4CAF50).copy(alpha = 0.08f)

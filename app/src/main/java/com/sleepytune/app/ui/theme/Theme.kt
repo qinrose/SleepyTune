@@ -117,3 +117,14 @@ fun SleepyTuneTheme(
         content = content
     )
 }
+
+// 统一圆角令牌：各界面共用，消除 RoundedCornerShape 字面量散落导致的不一致。
+// 收敛为四级尺度：xs 小芯片/缩略图、sm 按钮/小卡片、md 标准卡片、lg 对话框/大卡片、xl 空态/hero。
+// 注意：令牌本身是 Shape（RoundedCornerShape），可直接用于 shape = 与 Modifier.clip()。
+object Radius {
+    val xs = RoundedCornerShape(8.dp)
+    val sm = RoundedCornerShape(12.dp)
+    val md = RoundedCornerShape(16.dp)
+    val lg = RoundedCornerShape(20.dp)
+    val xl = RoundedCornerShape(24.dp)
+}

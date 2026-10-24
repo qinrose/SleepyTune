@@ -1,4 +1,5 @@
 package com.sleepytune.app.ui.screen.playlist
+import com.sleepytune.app.ui.theme.Radius
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -161,7 +162,7 @@ fun PlaylistScreen(navController: NavController) {
                 }) { Text(stringResource(R.string.confirm_ok)) }
             },
             dismissButton = { TextButton(onClick = { showCreateDialog = false }) { Text(stringResource(R.string.confirm_cancel)) } },
-            shape = RoundedCornerShape(20.dp),
+            shape = Radius.lg,
             containerColor = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp
         )
@@ -196,7 +197,7 @@ fun PlaylistScreen(navController: NavController) {
                 }) { Text(stringResource(R.string.confirm_ok)) }
             },
             dismissButton = { TextButton(onClick = { showRenameDialog = false; selectedPlaylist = null }) { Text(stringResource(R.string.confirm_cancel)) } },
-            shape = RoundedCornerShape(20.dp),
+            shape = Radius.lg,
             containerColor = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp
         )
@@ -219,7 +220,7 @@ fun PlaylistScreen(navController: NavController) {
                 }) { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = { TextButton(onClick = { showDeleteDialog = false; selectedPlaylist = null }) { Text(stringResource(R.string.confirm_cancel)) } },
-            shape = RoundedCornerShape(20.dp),
+            shape = Radius.lg,
             containerColor = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp
         )
@@ -234,7 +235,7 @@ private fun EmptyPlaylistScreen() {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Card(
-            shape = RoundedCornerShape(20.dp),
+            shape = Radius.lg,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             modifier = Modifier.size(100.dp)
@@ -283,12 +284,12 @@ fun PlaylistCard(
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .combinedClickable(onClick = onClick, onLongClick = { showMenu = true }),
-        shape = RoundedCornerShape(18.dp),
+        shape = Radius.md,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         ),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(14.dp),
@@ -305,7 +306,7 @@ fun PlaylistCard(
                                 com.sleepytune.app.ui.theme.GradientAccentStart
                             )
                         ),
-                        RoundedCornerShape(14.dp)
+                        Radius.md
                     ),
                 contentAlignment = Alignment.Center
             ) {

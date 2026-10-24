@@ -1,4 +1,5 @@
 package com.sleepytune.app.ui.screen.alarm
+import com.sleepytune.app.ui.theme.Radius
 
 import android.content.Intent
 import android.os.Build
@@ -99,6 +100,10 @@ class AlarmAlertActivity : ComponentActivity() {
 
         enableEdgeToEdge()
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        // Android 10+ 关闭系统对透明导航栏的对比度遮罩，避免手势条区域出现浅白色横条
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+        }
 
         if (lockScreenPopupEnabled) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -488,7 +493,7 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                             })
                             activity?.finish()
                         },
-                        shape = RoundedCornerShape(18.dp),
+                        shape = Radius.lg,
                         border = androidx.compose.foundation.BorderStroke(1.dp, cfg.CardBorder),
                         modifier = Modifier.weight(1f).height(54.dp)
                     ) {
@@ -505,7 +510,7 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                             })
                             activity?.finish()
                         },
-                        shape = RoundedCornerShape(18.dp),
+                        shape = Radius.lg,
                         colors = ButtonDefaults.buttonColors(containerColor = cfg.ButtonDanger),
                         modifier = Modifier.weight(1.4f).height(54.dp)
                     ) {
@@ -523,7 +528,7 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                         })
                         activity?.finish()
                     },
-                    shape = RoundedCornerShape(18.dp),
+                    shape = Radius.lg,
                     colors = ButtonDefaults.buttonColors(containerColor = cfg.ButtonDanger),
                     modifier = Modifier.fillMaxWidth().height(54.dp)
                 ) {
@@ -568,7 +573,7 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                                 })
                                 isVibrating = false
                             },
-                            shape = RoundedCornerShape(16.dp),
+                            shape = Radius.md,
                             border = androidx.compose.foundation.BorderStroke(1.dp, cfg.CardBorder),
                             modifier = Modifier.weight(1f).height(44.dp)
                         ) {
@@ -583,7 +588,7 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
                                 })
                                 isVibrating = false
                             },
-                            shape = RoundedCornerShape(16.dp),
+                            shape = Radius.md,
                             border = androidx.compose.foundation.BorderStroke(1.dp, cfg.CardBorder),
                             modifier = Modifier.weight(1f).height(44.dp)
                         ) {
@@ -602,7 +607,7 @@ fun AlarmAlertScreen(alarmId: Long, alarmLabel: String, snoozeEnabled: Boolean) 
 private fun PlaybackWarningBanner(text: String) {
     val cfg = AlarmColorConfig.forTheme(isSystemInDarkTheme())
     Surface(
-        shape = RoundedCornerShape(14.dp),
+        shape = Radius.md,
         color = cfg.WarningBackground,
         border = androidx.compose.foundation.BorderStroke(1.dp, cfg.WarningBorder),
         modifier = Modifier.fillMaxWidth()
@@ -631,7 +636,7 @@ private fun PlaybackWarningBanner(text: String) {
 private fun MagazineSongCard(title: String, artist: String, onNextSong: () -> Unit) {
     val cfg = AlarmColorConfig.forTheme(isSystemInDarkTheme())
     Surface(
-        shape = RoundedCornerShape(20.dp),
+        shape = Radius.lg,
         color = cfg.CardBackground,
         border = androidx.compose.foundation.BorderStroke(1.dp, cfg.CardBorder),
         modifier = Modifier.fillMaxWidth()
@@ -671,7 +676,7 @@ private fun MagazineSongCard(title: String, artist: String, onNextSong: () -> Un
             Spacer(modifier = Modifier.width(12.dp))
             FloatingActionButton(
                 onClick = onNextSong,
-                shape = RoundedCornerShape(16.dp),
+                shape = Radius.md,
                 containerColor = cfg.ButtonPrimary,
                 contentColor = cfg.TextPrimary,
                 modifier = Modifier.size(48.dp)

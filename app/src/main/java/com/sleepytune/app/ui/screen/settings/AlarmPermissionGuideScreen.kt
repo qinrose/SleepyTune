@@ -1,4 +1,5 @@
 package com.sleepytune.app.ui.screen.settings
+import com.sleepytune.app.ui.theme.Radius
 
 import android.content.Context
 import android.content.Intent
@@ -57,7 +58,11 @@ fun AlarmPermissionGuideScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.permission_alarm_settings_title), fontWeight = FontWeight.SemiBold) },
+                title = { Text(stringResource(R.string.permission_alarm_settings_title), style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground
+                ),
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back))
@@ -77,7 +82,7 @@ fun AlarmPermissionGuideScreen(
             // 顶部警告卡片
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
+                shape = Radius.md,
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
                 )
@@ -165,7 +170,7 @@ fun AlarmPermissionGuideScreen(
             
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
+                shape = Radius.sm,
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
                 )
@@ -189,7 +194,7 @@ fun AlarmPermissionGuideScreen(
             OutlinedButton(
                 onClick = { refreshStates() },
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                shape = Radius.sm
             ) {
                 Icon(Icons.Default.Refresh, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
@@ -203,7 +208,7 @@ fun AlarmPermissionGuideScreen(
             ) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = Radius.md,
                     colors = CardDefaults.cardColors(
                         containerColor = Color(0xFF4CAF50).copy(alpha = 0.15f)
                     )
@@ -242,7 +247,7 @@ private fun PermissionCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = Radius.md,
         colors = CardDefaults.cardColors(
             containerColor = if (isGranted) {
                 Color(0xFF4CAF50).copy(alpha = 0.08f)

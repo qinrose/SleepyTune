@@ -1,6 +1,7 @@
 package com.sleepytune.app
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -62,6 +63,12 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // 关键：Android 10+ 即使系统栏已透明，系统仍可能自动叠加一层对比度遮罩，
+        // 在手势导航区表现为一条浅白色横条（看起来像"没做边到边"）。显式关闭它。
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+        }
 
         // 如果闹钟正在响，直接跳转到闹钟界面并结束当前Activity
         if (alarmStateManager.isAlarmPlayingCrossProcess(this)) {
@@ -169,45 +176,62 @@ fun MainScreen(widthSizeClass: WindowWidthSizeClass) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
+        // 顶部 inset 交给各页面自己的 Scaffold/TopAppBar 处理：
+        // 外层若再消化一次状态栏，标题会被顶下去整整一个状态栏高度。
+        // 底部仍由 NavigationBar 自己吸收手势条 inset。
+        contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Bottom),
         bottomBar = {
             if (!useNavigationRail) {
-                NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 3.dp
+                // 边到边：导航栏与页面同底色（而不是纯白 surface），
+                // 否则米色页面上会出现一条"白条"，观感上像旧的系统导航栏。
+                // 仅用一条 hairline 分隔线建立层次。
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.background)
                 ) {
-                    NavItem.entries.forEach { item ->
-                        NavigationBarItem(
-                            selected = currentRoute == item.route,
-                            onClick = { navController.navigate(item.route) },
-                            icon = {
-                                Icon(
-                                    imageVector = item.icon,
-                                    contentDescription = item.getLabel(),
-                                    tint = if (currentRoute == item.route)
-                                        MaterialTheme.colorScheme.onPrimaryContainer
-                                    else
-                                        MaterialTheme.colorScheme.onSurfaceVariant
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+                    )
+                    NavigationBar(
+                        containerColor = MaterialTheme.colorScheme.background,
+                        tonalElevation = 0.dp
+                    ) {
+                        NavItem.entries.forEach { item ->
+                            NavigationBarItem(
+                                selected = currentRoute == item.route,
+                                onClick = { navController.navigate(item.route) },
+                                icon = {
+                                    Icon(
+                                        imageVector = item.icon,
+                                        contentDescription = item.getLabel(),
+                                        tint = if (currentRoute == item.route)
+                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                        else
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                },
+                                label = {
+                                    Text(
+                                        text = item.getLabel(),
+                                        fontSize = 12.sp,
+                                        fontWeight = if (currentRoute == item.route) FontWeight.SemiBold else FontWeight.Normal,
+                                        color = if (currentRoute == item.route)
+                                            MaterialTheme.colorScheme.primary
+                                        else
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    indicatorColor = MaterialTheme.colorScheme.primaryContainer
                                 )
-                            },
-                            label = {
-                                Text(
-                                    text = item.getLabel(),
-                                    fontSize = 12.sp,
-                                    fontWeight = if (currentRoute == item.route) FontWeight.SemiBold else FontWeight.Normal,
-                                    color = if (currentRoute == item.route)
-                                        MaterialTheme.colorScheme.primary
-                                    else
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                selectedTextColor = MaterialTheme.colorScheme.primary,
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                indicatorColor = MaterialTheme.colorScheme.primaryContainer
                             )
-                        )
+                        }
                     }
                 }
             }
@@ -220,7 +244,8 @@ fun MainScreen(widthSizeClass: WindowWidthSizeClass) {
         ) {
             if (useNavigationRail) {
                 NavigationRail(
-                    containerColor = MaterialTheme.colorScheme.surface,
+                    // 与页面同底色，平板/折叠屏展开态同样是连续的一片背景
+                    containerColor = MaterialTheme.colorScheme.background,
                     header = {
                         // 侧栏顶部放应用标识，保持品牌感
                         Icon(
