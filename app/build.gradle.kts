@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -7,6 +9,16 @@ plugins {
 
 // AGP 9 内置 Kotlin：Kotlin compiler 目标由 android.compileOptions(Java 11) 对齐，
 // 无需再配置 KGP 的 kotlin { compilerOptions { jvmTarget } } 扩展。
+
+// 发布签名：凭据来自根目录 keystore.properties（已在 .gitignore 中忽略）。
+// 文件缺失时自动退回未签名构建，保证任何人 clone 后都能直接编译。
+val keystorePropsFile = rootProject.file("keystore.properties")
+val keystoreProps = Properties().apply {
+    if (keystorePropsFile.exists()) keystorePropsFile.inputStream().use { load(it) }
+}
+val hasReleaseKey = keystorePropsFile.exists() &&
+    keystoreProps.getProperty("storeFile")?.isNotBlank() == true &&
+    rootProject.file(keystoreProps.getProperty("storeFile")).exists()
 
 android {
     namespace = "com.sleepytune.app"
@@ -26,6 +38,19 @@ android {
         }
     }
 
+    signingConfigs {
+        if (hasReleaseKey) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+                enableV1Signing = true
+                enableV2Signing = true
+            }
+        }
+    }
+
     buildTypes {
         release {
             // R8 代码混淆 + 资源收缩：开源发布标准配置
@@ -35,6 +60,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            if (hasReleaseKey) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
         debug {
             applicationIdSuffix = ".debug"

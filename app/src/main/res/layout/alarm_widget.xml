@@ -12,7 +12,7 @@
         android:layout_height="24dp"
         android:layout_alignParentStart="true"
         android:layout_alignParentTop="true"
-        android:src="@drawable/ic_launcher_foreground"
+        android:src="@mipmap/ic_launcher"
         android:contentDescription="闹钟" />
     
     <!-- 下一个闹钟时间 -->

@@ -120,3 +120,6 @@ build/
 
 # WorkBuddy agent workspace data
 .workbuddy/
+
+# Release signing credentials (never commit)
+keystore.properties
