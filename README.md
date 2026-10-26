@@ -1,6 +1,6 @@
 # Sleepy Tune
 
-[![CI](https://github.com/YOUR_USERNAME/SleepyTune/actions/workflows/android.yml/badge.svg)](https://github.com/YOUR_USERNAME/SleepyTune/actions/workflows/android.yml)
+[![CI](https://github.com/qinrose/SleepyTune/actions/workflows/android.yml/badge.svg)](https://github.com/qinrose/SleepyTune/actions/workflows/android.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 **English** | [简体中文](README.zh-CN.md)
@@ -14,6 +14,13 @@ A gentle, reliable alarm clock for Android — wake up to your own music, with f
   <img src="docs/screenshots/alarm_alert.png" width="200" />
 </p>
 -->
+
+## Download
+
+Grab the latest signed APK from **[Releases](https://github.com/qinrose/SleepyTune/releases/latest)**.
+
+> Requires Android 7.0 (API 24) or newer. Release builds use the project's own signing key, so they can be
+> installed side by side with a debug build for testing.
 
 ## Features
 
@@ -56,7 +63,7 @@ Alarms are engineered to ring on time:
 ## Build
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/SleepyTune.git
+git clone https://github.com/qinrose/SleepyTune.git
 cd SleepyTune
 ./gradlew assembleDebug      # debug APK
 ./gradlew assembleRelease    # release APK (R8 minified)

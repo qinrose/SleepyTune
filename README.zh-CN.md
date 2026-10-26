@@ -1,6 +1,6 @@
 # Sleepy Tune
 
-[![CI](https://github.com/YOUR_USERNAME/SleepyTune/actions/workflows/android.yml/badge.svg)](https://github.com/YOUR_USERNAME/SleepyTune/actions/workflows/android.yml)
+[![CI](https://github.com/qinrose/SleepyTune/actions/workflows/android.yml/badge.svg)](https://github.com/qinrose/SleepyTune/actions/workflows/android.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 [English](README.md) | **简体中文**
@@ -14,6 +14,12 @@
   <img src="docs/screenshots/alarm_alert.png" width="200" />
 </p>
 -->
+
+## 下载安装
+
+从 **[Releases](https://github.com/qinrose/SleepyTune/releases/latest)** 下载最新的签名 APK。
+
+> 需要 Android 7.0（API 24）及以上。正式包使用项目自有密钥签名，可与 debug 包同时安装，互不覆盖。
 
 ## 功能特性
 
@@ -56,7 +62,7 @@
 ## 构建
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/SleepyTune.git
+git clone https://github.com/qinrose/SleepyTune.git
 cd SleepyTune
 ./gradlew assembleDebug      # 调试 APK
 ./gradlew assembleRelease    # 发布 APK（R8 混淆）
