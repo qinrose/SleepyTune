@@ -8,6 +8,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -55,6 +57,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.sleepytune.app.R
+import com.sleepytune.app.service.MusicPlayerManager
+import com.sleepytune.app.ui.component.MiniPlayerBar
+import com.sleepytune.app.ui.component.SongPlayButton
+import com.sleepytune.app.ui.component.SongThumbnail
+import com.sleepytune.app.ui.component.toPlaybackTrack
+import com.sleepytune.app.ui.viewmodel.MusicPlayerViewModel
 import com.sleepytune.app.ui.viewmodel.PlaylistViewModel
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
@@ -64,6 +72,21 @@ fun PlaylistDetailScreen(navController: NavController, playlistId: Long) {
     val playlist by viewModel.getPlaylist(playlistId).collectAsState(initial = null)
     val playlistSongs by viewModel.getPlaylistSongs(playlistId).collectAsState(initial = emptyList())
     val isLoading by viewModel.isLoading.collectAsState()
+
+    // 与音乐库页共用同一个单例播放引擎 -> 播放状态、通知栏自然一致
+    val playerManager: MusicPlayerManager = hiltViewModel<MusicPlayerViewModel>().musicPlayerManager
+    val playbackState by playerManager.state.collectAsState()
+
+    // 从第 index 首开始播放整个歌单；点同一首则暂停/继续
+    val playAt: (Int) -> Unit = { index ->
+        if (index in playlistSongs.indices) {
+            if (playbackState.track?.id == playlistSongs[index].id) {
+                playerManager.togglePlayPause()
+            } else {
+                playerManager.playQueue(playlistSongs.map { it.toPlaybackTrack() }, index)
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -99,6 +122,21 @@ fun PlaylistDetailScreen(navController: NavController, playlistId: Long) {
                 )
             )
         },
+        bottomBar = {
+            AnimatedVisibility(
+                visible = playbackState.isActive,
+                enter = fadeIn(animationSpec = tween(180)) +
+                    slideInVertically(animationSpec = tween(220)) { it / 2 },
+                exit = fadeOut(animationSpec = tween(140)) +
+                    slideOutVertically(animationSpec = tween(180)) { it / 2 }
+            ) {
+                MiniPlayerBar(
+                    state = playbackState,
+                    onToggle = { playerManager.togglePlayPause() },
+                    onClose = { playerManager.stop() }
+                )
+            }
+        },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         Column(
@@ -131,7 +169,8 @@ fun PlaylistDetailScreen(navController: NavController, playlistId: Long) {
                             PlaylistSongItem(
                                 song = song,
                                 index = index + 1,
-                                onPlay = { /* TODO: 播放歌曲 */ },
+                                isPlaying = playbackState.track?.id == song.id && playbackState.isPlaying,
+                                onPlay = { playAt(index) },
                                 onDelete = { viewModel.removeSongFromPlaylist(playlistId, song.id) }
                             )
                         }
@@ -183,6 +222,7 @@ private fun EmptyPlaylistState() {
 private fun PlaylistSongItem(
     song: com.sleepytune.app.data.local.entity.Music,
     index: Int,
+    isPlaying: Boolean,
     onPlay: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -215,16 +255,9 @@ private fun PlaylistSongItem(
             )
             Spacer(modifier = Modifier.width(6.dp))
 
-            // 专辑封面
-            if (!song.albumArtUri.isNullOrEmpty()) {
-                AsyncImage(
-                    model = song.albumArtUri,
-                    contentDescription = stringResource(R.string.music_album_art),
-                    modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)),
-                    contentScale = ContentScale.Crop
-                )
-            }
-            Spacer(modifier = Modifier.width(if (song.albumArtUri.isNullOrEmpty()) 0.dp else 12.dp))
+            // 专辑封面（无封面时占位，保证与音乐库页对齐一致）
+            SongThumbnail(albumArtUri = song.albumArtUri, size = 48.dp)
+            Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -249,14 +282,7 @@ private fun PlaylistSongItem(
                 )
             }
 
-            IconButton(onClick = onPlay, modifier = Modifier.size(40.dp)) {
-                Icon(
-                    imageVector = Icons.Default.PlayArrow,
-                    contentDescription = stringResource(R.string.action_play),
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
+            SongPlayButton(isPlaying = isPlaying, onClick = onPlay)
 
             IconButton(onClick = onDelete, modifier = Modifier.size(40.dp)) {
                 Icon(

@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.os.Build
@@ -30,6 +31,7 @@ class NotificationHelper @Inject constructor(
         const val CHANNEL_ID_SLEEP_TIMER = "sleep_timer_channel"
         const val CHANNEL_ID_MISSED = "missed_alarm_channel"
         const val CHANNEL_ID_PRE_ALARM = "pre_alarm_channel"
+        const val CHANNEL_ID_MUSIC = "music_playback_channel"
         
         // 通知ID
         const val NOTIFICATION_ID_ALARM = 1001
@@ -37,6 +39,7 @@ class NotificationHelper @Inject constructor(
         const val NOTIFICATION_ID_SLEEP_TIMER = 1003
         const val NOTIFICATION_ID_MISSED = 1004
         const val NOTIFICATION_ID_PRE_ALARM = 1005
+        const val NOTIFICATION_ID_MUSIC = 1006
         
         // 通知动作
         const val ACTION_STOP = "com.sleepytune.app.ACTION_STOP"
@@ -111,12 +114,28 @@ class NotificationHelper @Inject constructor(
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             }
             
+            // 音乐播放渠道
+            // 用 DEFAULT 而不是 LOW：LOW 在 MIUI / HyperOS 上会被折叠进"不重要通知"，
+            // 用户展开才能看到控制条，等于没提醒。渠道本身已静音且不震动。
+            val musicChannel = NotificationChannel(
+                CHANNEL_ID_MUSIC,
+                context.getString(R.string.notification_channel_music),
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = context.getString(R.string.notification_channel_music_desc)
+                setShowBadge(false)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                setSound(null, null)
+                enableVibration(false)
+            }
+
             notificationManager.createNotificationChannels(listOf(
                 alarmChannel,
                 snoozeChannel,
                 sleepTimerChannel,
                 missedChannel,
-                preAlarmChannel
+                preAlarmChannel,
+                musicChannel
             ))
             
             Log.i(TAG, "通知渠道已创建")
@@ -377,5 +396,100 @@ class NotificationHelper @Inject constructor(
     // 取消响前提醒（正式响铃时清理）
     fun cancelPreAlarmNotification() {
         notificationManager.cancel(NOTIFICATION_ID_PRE_ALARM)
+    }
+
+    // ==================================================================
+    // 音乐播放通知（音乐库页 / 歌单页共用同一条通知）
+    // ==================================================================
+
+    private fun musicAction(action: String, requestCode: Int): PendingIntent {
+        val intent = Intent(context, MusicPlaybackService::class.java).apply {
+            this.action = action
+        }
+        return PendingIntent.getService(
+            context, requestCode, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+    fun buildMusicNotification(
+        title: String,
+        artist: String,
+        isPlaying: Boolean,
+        largeIcon: Bitmap? = null,
+        index: Int = 0,
+        total: Int = 0
+    ): Notification {
+        val contentIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val contentPendingIntent = PendingIntent.getActivity(
+            context, 30, contentIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val previous = musicAction(MusicPlaybackService.ACTION_PREVIOUS, 31)
+        val toggle = musicAction(MusicPlaybackService.ACTION_TOGGLE, 32)
+        val next = musicAction(MusicPlaybackService.ACTION_NEXT, 33)
+        val close = musicAction(MusicPlaybackService.ACTION_STOP, 34)
+
+        // 副标题：歌手 · 第几首/共几首
+        val subtitle = buildString {
+            if (artist.isNotBlank()) append(artist)
+            if (total > 1 && index > 0) {
+                if (isNotEmpty()) append(" · ")
+                append(context.getString(R.string.notification_music_track_index, index, total))
+            }
+        }
+
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID_MUSIC)
+            .setContentTitle(title)
+            .setContentText(subtitle)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentIntent(contentPendingIntent)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setShowWhen(false)
+            .setSilent(true)
+            // 播放中不可划掉（常驻控制条），暂停后可以划掉
+            .setOngoing(isPlaying)
+            // 划掉通知 = 关闭播放
+            .setDeleteIntent(close)
+            .addAction(
+                android.R.drawable.ic_media_previous,
+                context.getString(R.string.music_previous),
+                previous
+            )
+            .addAction(
+                if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
+                context.getString(if (isPlaying) R.string.music_pause else R.string.music_play),
+                toggle
+            )
+            .addAction(
+                android.R.drawable.ic_media_next,
+                context.getString(R.string.music_next),
+                next
+            )
+            .addAction(
+                android.R.drawable.ic_menu_close_clear_cancel,
+                context.getString(R.string.music_stop_playback),
+                close
+            )
+            .setStyle(
+                androidx.media.app.NotificationCompat.MediaStyle()
+                    .setShowActionsInCompactView(0, 1, 2)
+            )
+
+        largeIcon?.let { builder.setLargeIcon(it) }
+        return builder.build()
+    }
+
+    fun notifyMusic(notification: Notification) {
+        notificationManager.notify(NOTIFICATION_ID_MUSIC, notification)
+    }
+
+    fun cancelMusicNotification() {
+        notificationManager.cancel(NOTIFICATION_ID_MUSIC)
     }
 }

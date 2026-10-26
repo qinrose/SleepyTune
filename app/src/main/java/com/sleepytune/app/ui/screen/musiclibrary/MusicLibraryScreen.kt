@@ -8,6 +8,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -91,6 +93,10 @@ import androidx.activity.ComponentActivity
 import coil.compose.AsyncImage
 import com.sleepytune.app.R
 import com.sleepytune.app.service.MusicPlayerManager
+import com.sleepytune.app.ui.component.MiniPlayerBar
+import com.sleepytune.app.ui.component.SongPlayButton
+import com.sleepytune.app.ui.component.SongThumbnail
+import com.sleepytune.app.ui.component.toPlaybackTrack
 import com.sleepytune.app.ui.viewmodel.MusicLibraryViewModel
 import com.sleepytune.app.ui.viewmodel.PlaylistViewModel
 import com.sleepytune.app.utils.PermissionUtils
@@ -152,8 +158,20 @@ fun MusicLibraryScreen(navController: NavController) {
     val musicList by musicViewModel.musicFromDb.collectAsState(initial = null)
     val isLoading by musicViewModel.isLoading.collectAsState()
     val playlists by playlistViewModel.playlists.collectAsState(initial = emptyList())
-    val previewState by musicPlayerManager.previewState.collectAsState()
+    val playbackState by musicPlayerManager.state.collectAsState()
+    val playbackTrackId = playbackState.track?.id
     val context = LocalContext.current
+
+    // 两个界面共用的播放入口：点同一首就暂停/继续，点别的歌就从那首开始
+    val playAt: (List<com.sleepytune.app.data.local.entity.Music>, Int) -> Unit = { list, index ->
+        if (index in list.indices) {
+            if (playbackTrackId == list[index].id) {
+                musicPlayerManager.togglePlayPause()
+            } else {
+                musicPlayerManager.playQueue(list.map { it.toPlaybackTrack() }, index)
+            }
+        }
+    }
 
     var searchQuery by remember { mutableStateOf("") }
     var sortType by remember { mutableStateOf(SortType.ALPHABETICAL) }
@@ -415,6 +433,21 @@ fun MusicLibraryScreen(navController: NavController) {
                 )
             )
         },
+        bottomBar = {
+            AnimatedVisibility(
+                visible = playbackState.isActive,
+                enter = fadeIn(animationSpec = tween(180)) +
+                    slideInVertically(animationSpec = tween(220)) { it / 2 },
+                exit = fadeOut(animationSpec = tween(140)) +
+                    slideOutVertically(animationSpec = tween(180)) { it / 2 }
+            ) {
+                MiniPlayerBar(
+                    state = playbackState,
+                    onToggle = { musicPlayerManager.togglePlayPause() },
+                    onClose = { musicPlayerManager.stop() }
+                )
+            }
+        },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         Column(
@@ -520,7 +553,7 @@ fun MusicLibraryScreen(navController: NavController) {
                                 musicList = artistMusicList,
                                 selectedIds = selectedIds,
                                 isSelectionMode = isSelectionMode,
-                                previewState = previewState,
+                                playbackState = playbackState,
                                 onBack = { selectedArtist = null },
                                 onMusicClick = { music ->
                                     if (isSelectionMode) {
@@ -538,10 +571,7 @@ fun MusicLibraryScreen(navController: NavController) {
                                     if (selectedIds.contains(music.id)) selectedIds.remove(music.id) else selectedIds.add(music.id)
                                     if (selectedIds.isEmpty()) isSelectionMode = false
                                 },
-                                onPlayPause = { music ->
-                                    val isPlaying = previewState is MusicPlayerManager.PreviewState.Playing && (previewState as MusicPlayerManager.PreviewState.Playing).path == music.path
-                                    if (isPlaying) musicPlayerManager.stopPreview() else musicPlayerManager.playPreview(music.path)
-                                },
+                                onPlayPause = { _, index -> playAt(artistMusicList, index) },
                                 onAddToPlaylist = { music ->
                                     selectedMusicId = music.id
                                     showPlaylistDialog = true
@@ -583,7 +613,7 @@ fun MusicLibraryScreen(navController: NavController) {
                                 musicList = albumMusicList,
                                 selectedIds = selectedIds,
                                 isSelectionMode = isSelectionMode,
-                                previewState = previewState,
+                                playbackState = playbackState,
                                 onBack = { selectedAlbum = null },
                                 onMusicClick = { music ->
                                     if (isSelectionMode) {
@@ -601,10 +631,7 @@ fun MusicLibraryScreen(navController: NavController) {
                                     if (selectedIds.contains(music.id)) selectedIds.remove(music.id) else selectedIds.add(music.id)
                                     if (selectedIds.isEmpty()) isSelectionMode = false
                                 },
-                                onPlayPause = { music ->
-                                    val isPlaying = previewState is MusicPlayerManager.PreviewState.Playing && (previewState as MusicPlayerManager.PreviewState.Playing).path == music.path
-                                    if (isPlaying) musicPlayerManager.stopPreview() else musicPlayerManager.playPreview(music.path)
-                                },
+                                onPlayPause = { _, index -> playAt(albumMusicList, index) },
                                 onAddToPlaylist = { music ->
                                     selectedMusicId = music.id
                                     showPlaylistDialog = true
@@ -648,10 +675,7 @@ fun MusicLibraryScreen(navController: NavController) {
                                 enter = fadeIn(animationSpec = tween(300)) + scaleIn(animationSpec = tween(300)),
                                 exit = fadeOut(animationSpec = tween(300)) + scaleOut(animationSpec = tween(300))
                             ) {
-                                val isPlaying = when (val state = previewState) {
-                                    is MusicPlayerManager.PreviewState.Playing -> state.path == music.path
-                                    else -> false
-                                }
+                                val isPlaying = playbackState.track?.id == music.id && playbackState.isPlaying
 
                                 MusicItem(
                                     music = music,
@@ -686,13 +710,7 @@ fun MusicLibraryScreen(navController: NavController) {
                                             selectedIds.add(music.id)
                                         }
                                     },
-                                    onPlayPause = {
-                                        if (isPlaying) {
-                                            musicPlayerManager.stopPreview()
-                                        } else {
-                                            musicPlayerManager.playPreview(music.path)
-                                        }
-                                    },
+                                    onPlayPause = { playAt(filteredMusic, index) },
                                     onAddToPlaylist = {
                                         selectedMusicId = music.id
                                         showPlaylistDialog = true
@@ -1060,15 +1078,8 @@ private fun MusicItem(
                 Spacer(modifier = Modifier.width(6.dp))
             }
 
-            if (!music.albumArtUri.isNullOrEmpty()) {
-                AsyncImage(
-                    model = music.albumArtUri,
-                    contentDescription = stringResource(R.string.music_title),
-                    modifier = Modifier.size(52.dp).clip(RoundedCornerShape(10.dp)),
-                    contentScale = ContentScale.Crop
-                )
-            }
-            Spacer(modifier = Modifier.width(if (music.albumArtUri.isNullOrEmpty()) 0.dp else 12.dp))
+            SongThumbnail(albumArtUri = music.albumArtUri, size = 52.dp)
+            Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -1104,17 +1115,7 @@ private fun MusicItem(
                 }
             }
 
-            IconButton(onClick = onPlayPause, modifier = Modifier.size(40.dp)) {
-                Icon(
-                    imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = if (isPlaying) stringResource(R.string.music_pause) else stringResource(R.string.music_play),
-                    tint = if (isPlaying)
-                        MaterialTheme.colorScheme.primary
-                    else
-                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier.size(22.dp)
-                )
-            }
+            SongPlayButton(isPlaying = isPlaying, onClick = onPlayPause)
         }
     }
 }
@@ -1178,24 +1179,24 @@ private fun AlbumListItem(album: AlbumItem, onClick: () -> Unit, onAddToPlaylist
     }
 }
 
-// 歌手/专辑详情页的音乐列表（不带音符icon）
+// 歌手/专辑详情页的音乐列表（与歌单页共用同一套播放 UI）
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ArtistMusicList(
     musicList: List<com.sleepytune.app.data.local.entity.Music>,
     selectedIds: List<Long>,
     isSelectionMode: Boolean,
-    previewState: MusicPlayerManager.PreviewState,
+    playbackState: MusicPlayerManager.PlaybackState,
     onBack: () -> Unit,
     onMusicClick: (com.sleepytune.app.data.local.entity.Music) -> Unit,
     onMusicLongClick: (com.sleepytune.app.data.local.entity.Music) -> Unit,
     onToggleSelect: (com.sleepytune.app.data.local.entity.Music) -> Unit,
-    onPlayPause: (com.sleepytune.app.data.local.entity.Music) -> Unit,
+    onPlayPause: (com.sleepytune.app.data.local.entity.Music, Int) -> Unit,
     onAddToPlaylist: (com.sleepytune.app.data.local.entity.Music) -> Unit
 ) {
     LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)) {
-        items(musicList, key = { it.id }) { music ->
-            val isPlaying = previewState is MusicPlayerManager.PreviewState.Playing && previewState.path == music.path
+        itemsIndexed(musicList, key = { _, music -> music.id }) { index, music ->
+            val isPlaying = playbackState.track?.id == music.id && playbackState.isPlaying
             Card(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).combinedClickable(
                     onClick = { onMusicClick(music) },
@@ -1213,10 +1214,8 @@ private fun ArtistMusicList(
                         }
                         Spacer(modifier = Modifier.width(6.dp))
                     }
-                    if (!music.albumArtUri.isNullOrEmpty()) {
-                        AsyncImage(model = music.albumArtUri, contentDescription = stringResource(R.string.music_title), modifier = Modifier.size(52.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
-                        Spacer(modifier = Modifier.width(12.dp))
-                    }
+                    SongThumbnail(albumArtUri = music.albumArtUri, size = 52.dp)
+                    Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(text = music.title, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
                         Spacer(modifier = Modifier.height(2.dp))
@@ -1230,9 +1229,10 @@ private fun ArtistMusicList(
                             Icon(imageVector = Icons.Default.Add, contentDescription = stringResource(R.string.music_add_to_playlist), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
                         }
                     }
-                    IconButton(onClick = { onPlayPause(music) }, modifier = Modifier.size(40.dp)) {
-                        Icon(imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, contentDescription = if (isPlaying) stringResource(R.string.music_pause) else stringResource(R.string.music_play), tint = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(22.dp))
-                    }
+                    SongPlayButton(
+                        isPlaying = isPlaying,
+                        onClick = { onPlayPause(music, index) }
+                    )
                 }
             }
         }

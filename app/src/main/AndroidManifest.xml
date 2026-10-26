@@ -121,6 +121,13 @@
             android:foregroundServiceType="mediaPlayback"
             android:stopWithTask="false" />
 
+        <!-- 前台服务 - 音乐播放通知（音乐库 / 歌单页共用） -->
+        <service
+            android:name=".service.MusicPlaybackService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback"
+            android:stopWithTask="true" />
+
         <!-- Wear OS 手表数据层监听服务（接收手表端开关/同步指令） -->
         <service
             android:name=".wear.PhoneWearListenerService"

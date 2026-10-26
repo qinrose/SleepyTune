@@ -77,6 +77,9 @@
     <string name="music_deselect_all">Deselect All</string>
     <string name="music_play">Play</string>
     <string name="music_pause">Pause</string>
+    <string name="music_previous">Previous</string>
+    <string name="music_next">Next</string>
+    <string name="music_stop_playback">Stop playback</string>
     <string name="music_unknown_album">Unknown Album</string>
     <string name="music_search_hint">Try other keywords</string>
     <string name="music_filter_hint">Try other filters</string>
@@ -346,6 +349,9 @@
     <string name="notification_channel_missed_desc">Alerts you when an alarm was missed</string>
     <string name="notification_channel_pre_alarm">Pre-alarm reminder</string>
     <string name="notification_channel_pre_alarm_desc">Reminds you 5 minutes before the alarm rings</string>
+    <string name="notification_channel_music">Music playback</string>
+    <string name="notification_channel_music_desc">Shows what is playing, with controls to pause or close</string>
+    <string name="notification_music_track_index">%1$d of %2$d</string>
     <string name="notification_sleep_remaining">%1$d min remaining</string>
     <string name="notification_snooze_will_ring">Rings again in %1$d minutes</string>
     <string name="notification_snooze_cancel">Cancel snooze</string>

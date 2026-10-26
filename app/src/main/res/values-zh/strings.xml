@@ -77,6 +77,9 @@
     <string name="music_deselect_all">取消全选</string>
     <string name="music_play">播放</string>
     <string name="music_pause">暂停</string>
+    <string name="music_previous">上一首</string>
+    <string name="music_next">下一首</string>
+    <string name="music_stop_playback">关闭播放</string>
     <string name="music_unknown_album">未知专辑</string>
     <string name="music_search_hint">尝试其他关键词</string>
     <string name="music_filter_hint">尝试其他过滤条件</string>
@@ -346,6 +349,9 @@
     <string name="notification_channel_missed_desc">提醒你错过了某个闹钟</string>
     <string name="notification_channel_pre_alarm">响铃提醒</string>
     <string name="notification_channel_pre_alarm_desc">闹钟响起前 5 分钟提醒</string>
+    <string name="notification_channel_music">音乐播放</string>
+    <string name="notification_channel_music_desc">显示正在播放的歌曲，可直接暂停或关闭</string>
+    <string name="notification_music_track_index">第 %1$d 首 · 共 %2$d 首</string>
     <string name="notification_sleep_remaining">剩余 %1$d 分钟</string>
     <string name="notification_snooze_will_ring">%1$d分钟后再次响铃</string>
     <string name="notification_snooze_cancel">取消贪睡</string>
