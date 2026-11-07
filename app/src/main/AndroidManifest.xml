@@ -95,6 +95,7 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.TIME_SET" />
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
                 <action android:name="com.sleepytune.app.ALARM_TRIGGERED" />
                 <action android:name="com.sleepytune.app.SELF_HEAL" />
             </intent-filter>

@@ -29,6 +29,11 @@ class AlarmReceiver : BroadcastReceiver() {
         const val ACTION_TIME_SET = "android.intent.action.TIME_SET"
         const val ACTION_TIMEZONE_CHANGED = "android.intent.action.TIMEZONE_CHANGED"
 
+        // Android 12+：用户可能在应用运行期间去设置里开关「精确闹钟」。
+        // 系统会发这条广播，收到后必须重排——否则已排下的非精确闹钟会一直保持粗略模式。
+        const val ACTION_EXACT_ALARM_PERMISSION_CHANGED =
+            "android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED"
+
         const val EXTRA_ALARM_ID = "alarm_id"
         const val EXTRA_PLAYLIST_ID = "playlist_id"
         const val EXTRA_RINGTONE_PATH = "ringtone_path"
@@ -63,6 +68,11 @@ class AlarmReceiver : BroadcastReceiver() {
                 Log.i(TAG, "System reboot, rescheduling all alarms")
                 rescheduleAllAlarmsFull(hiltEntryPoint)
             }
+            // 解锁前的 LOCKED_BOOT_COMPLETED：此时用户数据区（Room）仍加密不可读，
+            // 排不了闹钟。真正的重排放在解锁后的 BOOT_COMPLETED，这里只记日志。
+            Intent.ACTION_LOCKED_BOOT_COMPLETED -> {
+                Log.i(TAG, "LOCKED_BOOT_COMPLETED：等待用户解锁后再重排")
+            }
             ACTION_MY_PACKAGE_REPLACED -> {
                 Log.i(TAG, "App updated, restoring all alarms")
                 rescheduleAllAlarmsFull(hiltEntryPoint)
@@ -73,6 +83,10 @@ class AlarmReceiver : BroadcastReceiver() {
             }
             ACTION_SELF_HEAL -> {
                 Log.i(TAG, "自愈心跳：重新核对所有闹钟调度")
+                rescheduleAllAlarmsFull(hiltEntryPoint)
+            }
+            ACTION_EXACT_ALARM_PERMISSION_CHANGED -> {
+                Log.i(TAG, "精确闹钟权限变更，立即重排以去掉粗略调度")
                 rescheduleAllAlarmsFull(hiltEntryPoint)
             }
             ACTION_ALARM_TRIGGERED, ACTION_ALARM_BACKUP -> {

@@ -18,18 +18,22 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavController
 import com.sleepytune.app.R
 import com.sleepytune.app.data.local.entity.Alarm
 import com.sleepytune.app.ui.theme.SleepyTuneTheme
 import com.sleepytune.app.ui.viewmodel.AlarmListViewModel
 import com.sleepytune.app.ui.viewmodel.TimeFormatViewModel
+import com.sleepytune.app.utils.PermissionUtils
 import com.sleepytune.app.utils.TimeFormatHelper
 import kotlinx.coroutines.delay
 
@@ -43,13 +47,29 @@ fun AlarmListScreen(navController: NavController) {
     // 12/24 小时制跟随设置（AUTO 跟随系统）
     val is24Hour = remember(timeFormat) { timeFormatViewModel.is24Hour() }
 
+    // 漏响风险汇总：从系统设置返回时重算，保证「去检查→回来」状态立刻刷新
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var risk by remember { mutableStateOf(PermissionUtils.checkAlarmRisks(context)) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                risk = PermissionUtils.checkAlarmRisks(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     AlarmListContent(
         alarms = alarms,
         is24Hour = is24Hour,
+        risk = risk,
         onAddClick = { navController.navigate("alarmEdit") },
         onAlarmClick = { alarm -> navController.navigate("alarmEdit/${alarm.id}") },
         onToggle = { alarm -> viewModel.toggleAlarm(alarm) },
-        onDelete = { alarm -> viewModel.deleteAlarm(alarm) }
+        onDelete = { alarm -> viewModel.deleteAlarm(alarm) },
+        onFixRisk = { navController.navigate("permissionGuide") }
     )
 }
 
@@ -62,7 +82,9 @@ fun AlarmListContent(
     onAddClick: () -> Unit,
     onAlarmClick: (Alarm) -> Unit,
     onToggle: (Alarm) -> Unit,
-    onDelete: (Alarm) -> Unit
+    onDelete: (Alarm) -> Unit,
+    risk: PermissionUtils.AlarmRisk = PermissionUtils.AlarmRisk(),
+    onFixRisk: () -> Unit = {}
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -116,6 +138,13 @@ fun AlarmListContent(
                     }
                 }
 
+                // 有漏响风险时，在标题下方直接给出提示与入口（不侵入正常列表）
+                if (risk.hasRisk) {
+                    item {
+                        AlarmRiskBanner(issueCount = risk.issueCount, onClick = onFixRisk)
+                    }
+                }
+
                 itemsIndexed(items = alarms, key = { _, alarm -> alarm.id }) { index, alarm ->
                     var itemVisible by remember { mutableStateOf(false) }
                     LaunchedEffect(Unit) {
@@ -139,6 +168,62 @@ fun AlarmListContent(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * 漏响风险提示条。
+ *
+ * 不阻塞任何操作，只在「闹钟确实可能不响」时出现：精确闹钟被关、仍受电池优化、
+ * 通知被拒、闹钟音量过低、勿扰可能静音。点一下直接去权限引导页逐项修。
+ */
+@Composable
+private fun AlarmRiskBanner(issueCount: Int, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = Radius.md,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f)
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.25f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 13.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.WarningAmber,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.alarm_risk_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = stringResource(R.string.alarm_risk_desc, issueCount),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.75f)
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = stringResource(R.string.alarm_risk_action),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.error
+            )
         }
     }
 }

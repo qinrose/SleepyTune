@@ -60,15 +60,23 @@ class AlarmScheduler @Inject constructor(
             showPendingIntent
         )
 
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (!alarmManager.canScheduleExactAlarms()) {
-                    Log.w(TAG, "无精确闹钟权限")
-                }
-            }
+        val exactAvailable = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
 
-            alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
-            Log.i(TAG, "已调度闹钟: id=${alarm.id}, 时间=${alarmTime.time}")
+        try {
+            if (exactAvailable) {
+                alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+            } else {
+                // 没有精确闹钟权限时 setAlarmClock 必然抛 SecurityException。
+                // 这里直接退到 setAndAllowWhileIdle：虽然不精确，但能穿透 Doze；
+                // 若用 set()，Doze 下可能被推迟几十分钟，等于漏响。
+                Log.w(TAG, "无精确闹钟权限，退化为非精确调度: id=${alarm.id}")
+                alarmManager.setAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    alarmTime.timeInMillis,
+                    pendingIntent
+                )
+            }
+            Log.i(TAG, "已调度闹钟: id=${alarm.id}, 时间=${alarmTime.time}, exact=$exactAvailable")
         } catch (e: SecurityException) {
             Log.e(TAG, "调度闹钟失败(权限): ${e.message}")
             scheduleFallbackAlarm(alarmTime.timeInMillis, pendingIntent)
@@ -76,8 +84,6 @@ class AlarmScheduler @Inject constructor(
             Log.e(TAG, "调度闹钟失败: ${e.message}", e)
             scheduleFallbackAlarm(alarmTime.timeInMillis, pendingIntent)
         }
-
-        val exactAvailable = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
 
         // 备份闹钟：同一时刻再挂一条，主闹钟投递失败时的兜底（服务端有防重入守卫，不会双响）
         try {
@@ -181,7 +187,16 @@ class AlarmScheduler @Inject constructor(
                 pendingIntent
             )
         } catch (e: Exception) {
-            alarmManager.set(AlarmManager.RTC_WAKEUP, triggerTimeMs, pendingIntent)
+            // 精确也不行就抢一个能穿透 Doze 的非精确闹钟，绝不退回裸 set()
+            try {
+                alarmManager.setAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    triggerTimeMs,
+                    pendingIntent
+                )
+            } catch (e2: Exception) {
+                alarmManager.set(AlarmManager.RTC_WAKEUP, triggerTimeMs, pendingIntent)
+            }
         }
     }
 

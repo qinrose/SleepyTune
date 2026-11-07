@@ -50,6 +50,9 @@ fun PermissionGuideScreen(
     var storageGranted by remember { mutableStateOf(PermissionUtils.checkStoragePermission(context)) }
     var notificationGranted by remember { mutableStateOf(PermissionUtils.checkNotificationPermission(context)) }
     var exactAlarmGranted by remember { mutableStateOf(PermissionUtils.checkExactAlarmPermission(context)) }
+    // 电池优化与闹钟音频此前是写死的展示项，现在接入真实状态
+    var batteryOptimizationGranted by remember { mutableStateOf(PermissionUtils.checkBatteryOptimization(context)) }
+    var audioHealth by remember { mutableStateOf(PermissionUtils.checkAlarmAudioHealth(context)) }
     // 后台弹出界面无法检测，默认显示需要设置
     var backgroundPopupGranted by remember { mutableStateOf(false) }
     
@@ -61,6 +64,8 @@ fun PermissionGuideScreen(
         storageGranted = PermissionUtils.checkStoragePermission(context)
         notificationGranted = PermissionUtils.checkNotificationPermission(context)
         exactAlarmGranted = PermissionUtils.checkExactAlarmPermission(context)
+        batteryOptimizationGranted = PermissionUtils.checkBatteryOptimization(context)
+        audioHealth = PermissionUtils.checkAlarmAudioHealth(context)
     }
     
     Scaffold(
@@ -216,11 +221,43 @@ fun PermissionGuideScreen(
                 icon = Icons.Default.BatteryAlert,
                 title = stringResource(R.string.battery_optimization_title),
                 description = stringResource(R.string.permission_battery_desc),
-                isGranted = false,
+                isGranted = batteryOptimizationGranted,
                 isSystemSetting = true,
                 onClick = {
-                    PermissionUtils.openAppSettings(context)
+                    // 直接拉起「忽略电池优化」系统弹窗，比让用户去应用详情页翻更短
+                    PermissionUtils.requestIgnoreBatteryOptimization(context)
                 }
+            )
+
+            // 闹钟音量：音量过低时静音等于没设闹钟，这是漏响最常见的原因之一
+            PermissionItem(
+                icon = Icons.Default.VolumeUp,
+                title = stringResource(R.string.permission_alarm_volume_title),
+                description = stringResource(
+                    R.string.permission_alarm_volume_desc,
+                    audioHealth.volumePercent
+                ),
+                isGranted = !audioHealth.isTooQuiet,
+                onClick = {
+                    if (!PermissionUtils.setAlarmVolumePercent(context, 80)) {
+                        PermissionUtils.openSoundSettings(context)
+                    }
+                    audioHealth = PermissionUtils.checkAlarmAudioHealth(context)
+                }
+            )
+
+            // 勿扰：USAGE_ALARM 默认能穿透，但部分 ROM 与「完全静音」策略会连闹钟一起拦
+            PermissionItem(
+                icon = Icons.Default.DoNotDisturb,
+                title = stringResource(R.string.permission_dnd_title),
+                description = when {
+                    audioHealth.dndMayBlockAlarms -> stringResource(R.string.permission_dnd_desc_blocked)
+                    audioHealth.dndActive -> stringResource(R.string.permission_dnd_desc_unknown)
+                    else -> stringResource(R.string.permission_dnd_desc_ok)
+                },
+                isGranted = !audioHealth.dndMayBlockAlarms,
+                isSystemSetting = true,
+                onClick = { PermissionUtils.openDndSettings(context) }
             )
 
             // 自启动权限（国产手机特有）
