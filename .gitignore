@@ -34,24 +34,12 @@ proguard/
 # Android Studio captures folder
 captures/
 
-# IntelliJ
+# IntelliJ / Android Studio 本机配置，整体忽略
+.idea/
 *.iml
-.idea/workspace.xml
-.idea/tasks.xml
-.idea/gradle.xml
-.idea/assetWizardSettings.xml
-.idea/dictionaries
-.idea/libraries
-.idea/jarRepositories.xml
-.idea/caches
-.idea/modules.xml
-.idea/.name
-.idea/compiler.xml
-.idea/misc.xml
-.idea/vcs.xml
-.idea/.gitignore
-.idea/deploymentTargetDropDown.xml
-.idea/render.experimental.xml
+
+# Trae / 其他编辑器工作区
+.trae/
 
 # Keystore files
 *.jks

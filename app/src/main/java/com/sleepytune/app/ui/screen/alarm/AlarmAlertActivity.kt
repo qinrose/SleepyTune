@@ -378,11 +378,12 @@ fun AlarmAlertScreen(
             addAction(AlarmPlaybackService.ACTION_SNOOZE_ENDED)
             addAction(AlarmPlaybackReceiver.ACTION_FINISH_ACTIVITY)
         }
-        if (Build.VERSION.SDK_INT >= 33) {
-            context.registerReceiver(receiver, filter, android.content.Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            context.registerReceiver(receiver, filter)
-        }
+        androidx.core.content.ContextCompat.registerReceiver(
+            context,
+            receiver,
+            filter,
+            androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED
+        )
         onDispose { context.unregisterReceiver(receiver) }
     }
 

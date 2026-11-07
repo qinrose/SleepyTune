@@ -12,6 +12,7 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import com.sleepytune.app.R
 import androidx.core.content.ContextCompat
 
 object PermissionUtils {
@@ -32,15 +33,6 @@ object PermissionUtils {
         }
     }
     
-    // 检查悬浮窗权限
-    fun checkOverlayPermission(context: Context): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Settings.canDrawOverlays(context)
-        } else {
-            true
-        }
-    }
-    
     // 检查精确闹钟权限
     fun checkExactAlarmPermission(context: Context): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -53,17 +45,12 @@ object PermissionUtils {
     
     // 检查电池优化是否已关闭（true = 已加入白名单，系统不会随意冻结进程）
     fun checkBatteryOptimization(context: Context): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val powerManager = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
-            powerManager.isIgnoringBatteryOptimizations(context.packageName)
-        } else {
-            true
-        }
+        val powerManager = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+        return powerManager.isIgnoringBatteryOptimizations(context.packageName)
     }
 
     // 直接拉起系统的「忽略电池优化」授权弹窗
     fun requestIgnoreBatteryOptimization(context: Context) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
         try {
             val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
                 data = Uri.parse("package:${context.packageName}")
@@ -80,34 +67,6 @@ object PermissionUtils {
         return checkStoragePermission(context) &&
                 checkNotificationPermission(context) &&
                 checkExactAlarmPermission(context)
-    }
-    
-    // 获取缺失的权限列表
-    fun getMissingPermissions(context: Context): List<PermissionType> {
-        val missing = mutableListOf<PermissionType>()
-        
-        if (!checkStoragePermission(context)) {
-            missing.add(PermissionType.STORAGE)
-        }
-        if (!checkNotificationPermission(context)) {
-            missing.add(PermissionType.NOTIFICATION)
-        }
-        if (!checkExactAlarmPermission(context)) {
-            missing.add(PermissionType.EXACT_ALARM)
-        }
-        
-        return missing
-    }
-    
-    // 权限类型枚举
-    enum class PermissionType(val displayName: String, val description: String, val isSystemSetting: Boolean = false) {
-        STORAGE("存储权限", "扫描本地音乐文件"),
-        NOTIFICATION("通知权限", "显示闹钟提醒通知"),
-        EXACT_ALARM("精确闹钟", "确保闹钟准时响起"),
-        BACKGROUND_POPUP("后台弹出界面", "闹钟响时在屏幕上弹出", isSystemSetting = true),
-        OVERLAY("悬浮窗权限", "在其他应用上层显示"),
-        BATTERY_OPTIMIZATION("电池优化", "关闭电池优化确保闹钟可靠运行", isSystemSetting = true),
-        AUTO_START("自启动权限", "确保闹钟在系统启动后自动运行", isSystemSetting = true)
     }
     
     // 权限请求启动器
@@ -127,7 +86,7 @@ object PermissionUtils {
                 storagePermissionCallback?.invoke()
                 android.util.Log.i("PermissionUtils", "存储权限已授予")
             } else {
-                showPermissionDeniedDialog(activity, "需要存储权限来扫描本地音乐")
+                showPermissionDeniedDialog(activity, activity.getString(R.string.perm_denied_storage))
             }
         }
         
@@ -139,7 +98,7 @@ object PermissionUtils {
                     notificationPermissionCallback?.invoke()
                     android.util.Log.i("PermissionUtils", "通知权限已授予")
                 } else {
-                    showPermissionDeniedDialog(activity, "需要通知权限来显示闹钟通知")
+                    showPermissionDeniedDialog(activity, activity.getString(R.string.perm_denied_notification))
                 }
             }
         }
@@ -171,49 +130,15 @@ object PermissionUtils {
         }
     }
     
-    // 请求悬浮窗权限
-    fun requestOverlayPermission(context: Context, onGranted: () -> Unit) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(context)) {
-            AlertDialog.Builder(context)
-                .setTitle("需要悬浮窗权限")
-                .setMessage("为了让闹钟响铃时能在屏幕上弹出提醒界面，请授予\"显示在其他应用上层\"权限。\n\n点击确定后，请在设置中开启此权限。")
-                .setPositiveButton("去设置") { _, _ ->
-                    try {
-                        val intent = Intent(
-                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                            Uri.parse("package:${context.packageName}")
-                        )
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        context.startActivity(intent)
-                    } catch (e: Exception) {
-                        openAppSettings(context)
-                    }
-                }
-                .setNegativeButton("取消") { dialog, _ ->
-                    dialog.dismiss()
-                    onGranted()
-                }
-                .setOnDismissListener {
-                    if (checkOverlayPermission(context)) {
-                        android.util.Log.i("PermissionUtils", "悬浮窗权限已授予")
-                        onGranted()
-                    }
-                }
-                .show()
-        } else {
-            onGranted()
-        }
-    }
-    
     // 请求精确闹钟权限
     fun requestExactAlarmPermission(context: Context, onGranted: () -> Unit) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
             if (!alarmManager.canScheduleExactAlarms()) {
                 AlertDialog.Builder(context)
-                    .setTitle("需要精确闹钟权限")
-                    .setMessage("为了让闹钟准时响铃，请授予\"精确闹钟\"权限。\n\n点击确定后，请在设置中开启此权限。")
-                    .setPositiveButton("去设置") { _, _ ->
+                    .setTitle(R.string.perm_need_exact_alarm_title)
+                    .setMessage(R.string.perm_need_exact_alarm_desc)
+                    .setPositiveButton(R.string.action_open_settings) { _, _ ->
                         try {
                             val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
                                 data = Uri.parse("package:${context.packageName}")
@@ -223,7 +148,7 @@ object PermissionUtils {
                             openAppSettings(context)
                         }
                     }
-                    .setNegativeButton("取消") { dialog, _ ->
+                    .setNegativeButton(R.string.confirm_cancel) { dialog, _ ->
                         dialog.dismiss()
                         onGranted()
                     }
@@ -245,41 +170,33 @@ object PermissionUtils {
     // 引导用户开启后台弹出界面权限（国产手机特有）
     fun requestBackgroundPopupPermission(context: Context, onGranted: () -> Unit) {
         AlertDialog.Builder(context)
-            .setTitle("需要后台弹出界面权限")
-            .setMessage("为了让闹钟响铃时能弹出提醒界面，请开启\"后台弹出界面\"权限。\n\n" +
-                    "操作步骤：\n" +
-                    "1. 点击\"去设置\"\n" +
-                    "2. 找到\"后台弹出界面\"或\"后台显示界面\"\n" +
-                    "3. 开启此权限")
-            .setPositiveButton("去设置") { _, _ ->
+            .setTitle(R.string.perm_need_bg_popup_title)
+            .setMessage(R.string.perm_need_bg_popup_desc)
+            .setPositiveButton(R.string.action_open_settings) { _, _ ->
                 openAppSettings(context)
             }
-            .setNegativeButton("稍后设置") { dialog, _ ->
+            .setNegativeButton(R.string.action_later) { dialog, _ ->
                 dialog.dismiss()
                 onGranted()
             }
             .show()
     }
-    
+
     // 引导用户开启自启动权限（国产手机特有）
     fun requestAutoStartPermission(context: Context, onGranted: () -> Unit) {
         AlertDialog.Builder(context)
-            .setTitle("需要自启动权限")
-            .setMessage("为了让闹钟在系统启动后能自动运行，请开启\"自启动\"权限。\n\n" +
-                    "操作步骤：\n" +
-                    "1. 点击\"去设置\"\n" +
-                    "2. 找到\"自启动\"或\"开机自启动\"\n" +
-                    "3. 开启此权限")
-            .setPositiveButton("去设置") { _, _ ->
+            .setTitle(R.string.perm_need_autostart_title)
+            .setMessage(R.string.perm_need_autostart_desc)
+            .setPositiveButton(R.string.action_open_settings) { _, _ ->
                 openAutoStartSettings(context)
             }
-            .setNegativeButton("稍后设置") { dialog, _ ->
+            .setNegativeButton(R.string.action_later) { dialog, _ ->
                 dialog.dismiss()
                 onGranted()
             }
             .show()
     }
-    
+
     // 打开自启动设置页面（适配不同厂商）
     private fun openAutoStartSettings(context: Context) {
         try {
@@ -516,10 +433,10 @@ object PermissionUtils {
 
     private fun showPermissionDeniedDialog(context: Context, message: String) {
         AlertDialog.Builder(context)
-            .setTitle("权限被拒绝")
+            .setTitle(R.string.perm_denied_title)
             .setMessage(message)
-            .setPositiveButton("去设置") { _, _ -> openAppSettings(context) }
-            .setNegativeButton("取消") { dialog, _ -> dialog.dismiss() }
+            .setPositiveButton(R.string.action_open_settings) { _, _ -> openAppSettings(context) }
+            .setNegativeButton(R.string.confirm_cancel) { dialog, _ -> dialog.dismiss() }
             .show()
     }
 }

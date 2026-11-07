@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -231,7 +232,7 @@ fun PermissionGuideScreen(
 
             // 闹钟音量：音量过低时静音等于没设闹钟，这是漏响最常见的原因之一
             PermissionItem(
-                icon = Icons.Default.VolumeUp,
+                icon = Icons.AutoMirrored.Filled.VolumeUp,
                 title = stringResource(R.string.permission_alarm_volume_title),
                 description = stringResource(
                     R.string.permission_alarm_volume_desc,

@@ -3,13 +3,9 @@ package com.sleepytune.app.utils
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
-import android.view.View
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
 
 // Context扩展：查找Activity
 fun Context.findActivity(): Activity? {
@@ -21,16 +17,6 @@ fun Context.findActivity(): Activity? {
         currentContext = currentContext.baseContext
     }
     return null
-}
-
-// View扩展：获取LifecycleOwner
-fun View.findLifecycleOwner(): LifecycleOwner? {
-    return context.findActivity() as? LifecycleOwner
-}
-
-// 安全启动协程
-fun LifecycleOwner.launchSafely(block: suspend CoroutineScope.() -> Unit): Job {
-    return lifecycleScope.launch(block = block)
 }
 
 // Job扩展：安全取消

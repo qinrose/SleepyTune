@@ -1,19 +1,15 @@
 # Sleepy Tune
 
+<p align="center">
+  <img src="docs/icon.png" width="128" alt="Sleepy Tune icon" />
+</p>
+
 [![CI](https://github.com/qinrose/SleepyTune/actions/workflows/android.yml/badge.svg)](https://github.com/qinrose/SleepyTune/actions/workflows/android.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 **English** | [简体中文](README.zh-CN.md)
 
 A gentle, reliable alarm clock for Android — wake up to your own music, with fade-in volume, smart vibration, and a magazine-style alarm screen.
-
-<!-- Optional: add screenshots here
-<p float="left">
-  <img src="docs/screenshots/alarms.png" width="200" />
-  <img src="docs/screenshots/alarm_edit.png" width="200" />
-  <img src="docs/screenshots/alarm_alert.png" width="200" />
-</p>
--->
 
 ## Download
 
@@ -40,11 +36,12 @@ Grab the latest signed APK from **[Releases](https://github.com/qinrose/SleepyTu
 
 Alarms are engineered to ring on time:
 
-- Exact alarms (`SCHEDULE_EXACT_ALARM` / `USE_EXACT_ALARM`) with graceful fallback
+- Exact alarms (`SCHEDULE_EXACT_ALARM` / `USE_EXACT_ALARM`) with graceful fallback, re-scheduled the moment the permission changes
 - Foreground playback service (`mediaPlayback` type) with a WakeLock
 - Boot-completed receiver re-schedules all alarms after restart
 - Automatic re-scheduling on system time / timezone changes
 - Full-screen alert activity shown over the lock screen
+- Built-in pre-flight check: battery-optimization, alarm volume, Do Not Disturb and notification settings are audited, and a banner on the alarm list warns when a setting could silence your alarm
 
 ## Tech Stack
 

@@ -32,7 +32,7 @@ class AlarmPlaybackReceiver : BroadcastReceiver() {
                 if (AlarmPlaybackService.getInstance() == null) {
                     startServiceSafely(context, AlarmPlaybackService.ACTION_STOP_ALARM)
                 }
-                context.sendBroadcast(Intent(ACTION_FINISH_ACTIVITY))
+                context.sendBroadcast(Intent(ACTION_FINISH_ACTIVITY).setPackage(context.packageName))
                 Log.i(TAG, "已停止闹钟")
             }
 

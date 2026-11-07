@@ -287,7 +287,7 @@ class AlarmPlaybackService : Service() {
 
     // 发送回退广播给闹钟界面
     private fun sendFallbackBroadcast(title: String, reason: String) {
-        val intent = Intent(ACTION_PLAYBACK_FALLBACK).apply {
+        val intent = Intent(ACTION_PLAYBACK_FALLBACK).setPackage(packageName).apply {
             putExtra(EXTRA_FALLBACK_TITLE, title)
             putExtra(EXTRA_FALLBACK_REASON, reason)
         }
@@ -409,7 +409,7 @@ class AlarmPlaybackService : Service() {
 
     // 发送广播更新 Activity 歌曲信息
     private fun sendPlaybackInfoBroadcast(title: String, artist: String) {
-        val intent = Intent(ACTION_UPDATE_PLAYBACK_INFO).apply {
+        val intent = Intent(ACTION_UPDATE_PLAYBACK_INFO).setPackage(packageName).apply {
             putExtra(EXTRA_SONG_TITLE, title)
             putExtra(EXTRA_SONG_ARTIST, artist)
         }

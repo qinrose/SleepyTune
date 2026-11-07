@@ -34,8 +34,6 @@
 -keep class dagger.hilt.** { *; }
 -keep class javax.inject.** { *; }
 -keep class * extends dagger.hilt.android.internal.managers.ComponentSupplier { *; }
--keep,allowobfuscation,allowshrinking class com.sleepytune.app.common.AppModule { *; }
--keep,allowobfuscation,allowshrinking interface com.sleepytune.app.common.AppModule { *; }
 
 # Compose
 -keep class androidx.compose.** { *; }
@@ -57,20 +55,6 @@
 
 # AppWidgetProvider
 -keep class * extends android.appwidget.AppWidgetProvider { *; }
-
-# Gson (如果使用)
--keepattributes Signature
--keepattributes *Annotation*
--keep class com.google.gson.** { *; }
--keep class * implements com.google.gson.TypeAdapterFactory
--keep class * implements com.google.gson.JsonSerializer
--keep class * implements com.google.gson.JsonDeserializer
-
-# OkHttp
--dontwarn okhttp3.**
--dontwarn okio.**
--keep class okhttp3.** { *; }
--keep interface okhttp3.** { *; }
 
 # Coil
 -keep class coil.** { *; }
@@ -95,15 +79,6 @@
     public static int d(...);
     public static int e(...);
 }
-
-# 优化选项
--optimizationpasses 5
--dontusemixedcaseclassnames
--dontskipnonpubliclibraryclasses
--verbose
-
-# 优化允许
--optimizations !code/simplification/arithmetic,!field/*,!class/merging/*,!code/allocation/variable
 
 # 保留应用主类
 -keep class com.sleepytune.app.SleepyTuneApplication { *; }

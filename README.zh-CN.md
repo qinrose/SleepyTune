@@ -1,19 +1,15 @@
 # Sleepy Tune
 
+<p align="center">
+  <img src="docs/icon.png" width="128" alt="Sleepy Tune 图标" />
+</p>
+
 [![CI](https://github.com/qinrose/SleepyTune/actions/workflows/android.yml/badge.svg)](https://github.com/qinrose/SleepyTune/actions/workflows/android.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 [English](README.md) | **简体中文**
 
 一款温柔而可靠的 Android 闹钟应用 —— 用自己的音乐醒来，支持音量渐强、智能震动和杂志风格的响铃界面。
-
-<!-- 可选：在此处添加截图
-<p float="left">
-  <img src="docs/screenshots/alarms.png" width="200" />
-  <img src="docs/screenshots/alarm_edit.png" width="200" />
-  <img src="docs/screenshots/alarm_alert.png" width="200" />
-</p>
--->
 
 ## 下载安装
 
@@ -39,11 +35,12 @@
 
 闹钟经过专门工程化设计，确保准时响起：
 
-- 精确闹钟（`SCHEDULE_EXACT_ALARM` / `USE_EXACT_ALARM`）+ 优雅降级
+- 精确闹钟（`SCHEDULE_EXACT_ALARM` / `USE_EXACT_ALARM`）+ 优雅降级，权限变化时立即重排
 - 前台播放服务（`mediaPlayback` 类型）+ WakeLock
 - 开机广播自动重排所有闹钟
 - 系统时间 / 时区变更自动重新调度
 - 全屏响铃界面，锁屏之上弹出
+- 内置响铃前体检：电池优化、闹钟音量、勿扰、通知权限逐项检查，首页会在存在漏响风险时给出提示条
 
 ## 技术栈
 
